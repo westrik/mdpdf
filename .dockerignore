@@ -1,0 +1,5 @@
+target
+*.pdf
+*.node
+*.typ
+node_modules

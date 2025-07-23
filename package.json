@@ -1,0 +1,55 @@
+{
+  "name": "@mdpdf/mdpdf",
+  "version": "0.1.0",
+  "description": "Convert Markdown to PDF using a self-contained Rust binary",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/westrik/mdpdf.git"
+  },
+  "author": "Matt Westrik",
+  "license": "MIT",
+  "keywords": [
+    "markdown",
+    "pdf",
+    "typst",
+    "rust",
+    "napi-rs"
+  ],
+  "engines": {
+    "node": ">= 18.17.0 < 19 || >= 20.3.0 < 21 || >= 21.0.0"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "files": [
+    "index.d.ts",
+    "index.js"
+  ],
+  "main": "index.js",
+  "napi": {
+    "binaryName": "mdpdf",
+    "targets": [
+      "aarch64-apple-darwin",
+      "x86_64-apple-darwin",
+      "aarch64-unknown-linux-gnu",
+      "x86_64-unknown-linux-gnu",
+      "x86_64-unknown-linux-musl",
+      "x86_64-pc-windows-msvc"
+    ]
+  },
+  "scripts": {
+    "build": "yarn napi build --platform --release --features node",
+    "build:debug": "yarn napi build --platform",
+    "prepublishOnly": "yarn napi prepublish -t npm",
+    "artifacts": "yarn napi artifacts",
+    "test": "node tests/test.mjs",
+    "lint": "prettier --check .",
+    "lint:fix": "prettier -w ."
+  },
+  "devDependencies": {
+    "@napi-rs/cli": "3.0.3",
+    "prettier": "^3.6.2"
+  },
+  "packageManager": "yarn@4.9.2"
+}

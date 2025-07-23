@@ -1,0 +1,6 @@
+fuzz
+src
+target
+.git
+*.md
+!README.md
