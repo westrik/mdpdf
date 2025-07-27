@@ -1,3 +1,4 @@
 - [ ] section links
 - [ ] latex math to typst math syntax (for ${}$ / $${}$$ / ```math)
 - [ ] aarch64 musl build
+- [ ] use correct left border color for github blockquotes

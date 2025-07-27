@@ -4,6 +4,10 @@ name = "mdpdf"
 version = "0.1.0"
 edition = "2024"
 include = ["src/**/*","fonts/*","README.md","LICENSE"]
+license = "MIT"
+keywords = ["pdf", "markdown", "node.js"]
+description = "Convert Markdown to PDF using a self-contained binary"
+repository = "http://github.com/westrik/mdpdf"
 
 [lib]
 crate-type = ["cdylib","rlib"]

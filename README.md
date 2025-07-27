@@ -1,6 +1,9 @@
 # mdpdf
 
-Convert Markdown to PDF with a self-contained Rust binary. Available for CLI and Node.js.
+[![CI](https://github.com/westrik/mdpdf/actions/workflows/CI.yml/badge.svg)](https://github.com/westrik/mdpdf/actions/workflows/CI.yml)
+![NPM Version](https://img.shields.io/npm/v/%40mdpdf%2Fmdpdf)
+
+Convert Markdown to PDF with a self-contained Rust binary via CLI or Node.js.
 
 ## Features
 
@@ -9,6 +12,10 @@ Convert Markdown to PDF with a self-contained Rust binary. Available for CLI and
 - Cross-platform support (x86_64 and aarch64)
 - Node.js bindings via napi-rs
 - Syntax highlighting for code blocks
+
+### Example Output
+
+- [demo.pdf](/tests/demo.pdf) ([demo.md](/tests/demo.md))
 
 ## Usage
 
@@ -22,8 +29,17 @@ mdpdf README.md -o README.pdf
 
 #### Node.js
 
+```
+npm install @mdpdf/mdpdf
+# or
+yarn add @mdpdf/mdpdf
+# or
+pnpm add @mdpdf/mdpdf
+```
+
 ```javascript
-import { markdownToPdf, markdownToTypstCode } from "mdpdf";
+import { markdownToPdf } from "@mdpdf/mdpdf";
+const pdfBytes = markdownToPdf("# this is markdown");
 ```
 
 ## Development

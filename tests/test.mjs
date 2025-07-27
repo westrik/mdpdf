@@ -15,8 +15,8 @@ let TEST_FILES = [
   "syntax.md",
   "html.md",
   "long.md",
-  // "advanced_edge_cases.md",
-  // "parsing_edge_cases.md",
+  "advanced_edge_cases.md",
+  "parsing_edge_cases.md",
   "vulnerability_test_cases.md",
   "torture_typst.md",
   "torture_typst_2.md",
@@ -137,7 +137,10 @@ async function main() {
         if (!PROFILE) {
           console.log(`PDF for ${test}: ${pdfTime.toFixed(2)}ms`);
         }
-        fs.writeFileSync(`${test}.pdf`, pdfBytes);
+        fs.writeFileSync(
+          path.join(import.meta.dirname, `${test}.pdf`),
+          pdfBytes,
+        );
       } catch (error) {
         if (!PROFILE) {
           console.error(`❌ PDF generation failed for ${test}:`, error);

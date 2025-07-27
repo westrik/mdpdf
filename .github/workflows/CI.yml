@@ -1,4 +1,4 @@
-name: Test & Publish
+name: CI
 env:
   DEBUG: napi:*
   APP_NAME: mdpdf
