@@ -1,7 +1,7 @@
 # mdpdf
 
 [![CI](https://github.com/westrik/mdpdf/actions/workflows/CI.yml/badge.svg)](https://github.com/westrik/mdpdf/actions/workflows/CI.yml)
-![NPM Version](https://img.shields.io/npm/v/%40mdpdf%2Fmdpdf)
+[![NPM Version](https://img.shields.io/npm/v/%40mdpdf%2Fmdpdf)](https://www.npmjs.com/package/@mdpdf/mdpdf)
 
 Convert Markdown to PDF with a self-contained Rust binary via CLI or Node.js.
 
@@ -15,7 +15,7 @@ Convert Markdown to PDF with a self-contained Rust binary via CLI or Node.js.
 
 ### Example Output
 
-- [demo.pdf](/tests/demo.pdf) ([demo.md](/tests/demo.md))
+- [Example PDF](https://github.com/westrik/mdpdf/blob/main/tests/demo.pdf) ([Source](https://raw.githubusercontent.com/westrik/mdpdf/refs/heads/main/tests/demo.md))
 
 ## Usage
 
@@ -38,8 +38,8 @@ pnpm add @mdpdf/mdpdf
 ```
 
 ```javascript
-import mdpdf from "@mdpdf/mdpdf";
-const pdfBytes = await mdpdf("# this is markdown");
+import { markdownToPdf } from "@mdpdf/mdpdf";
+const pdfBytes = await markdownToPdf("# this is markdown");
 ```
 
 ## Development
