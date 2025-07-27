@@ -24,7 +24,7 @@ cli = []
 node = ["napi","napi-derive","napi-build"]
 
 [profile.release]
-opt-level = 1
+opt-level = "z"
 lto = true
 codegen-units = 1
 panic = "abort"

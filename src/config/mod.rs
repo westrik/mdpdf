@@ -64,7 +64,7 @@ pub struct ImageHandlingConfig {
 impl Default for ImageHandlingConfig {
     fn default() -> Self {
         Self {
-            download_timeout: 30000, // 30 seconds
+            download_timeout: 2000, // 2 seconds
             // cache_directory: Some(".mdpdf-cache".to_string()),
             cache_directory: None,
             max_image_size: Some(10 * 1024 * 1024), // 10MB

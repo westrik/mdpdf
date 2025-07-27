@@ -19,7 +19,7 @@ build/
 .napi/
 
 # IDE and editor files
-.vscode/
+#.vscode/
 .idea/
 *.swp
 *.swo

@@ -1,6 +1,7 @@
 fuzz
 src
 target
+.yarn
 .git
 *.md
 !README.md

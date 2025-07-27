@@ -53,11 +53,14 @@
     "artifacts": "yarn napi artifacts",
     "test": "node tests/test.mjs",
     "lint": "prettier --check .",
-    "lint:fix": "prettier -w ."
+    "lint:fix": "prettier -w .",
+    "typecheck": "tsc"
   },
   "devDependencies": {
     "@napi-rs/cli": "3.0.3",
-    "prettier": "^3.6.2"
+    "@types/node": "^24.1.0",
+    "prettier": "^3.6.2",
+    "typescript": "^5.8.3"
   },
   "packageManager": "yarn@4.9.2"
 }

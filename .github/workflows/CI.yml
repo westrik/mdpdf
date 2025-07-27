@@ -40,6 +40,8 @@ jobs:
         run: corepack use yarn@4.9.2 && corepack yarn install
       - name: Prettier
         run: corepack yarn lint
+      - name: Typecheck
+        run: corepack yarn typecheck
       - name: Cargo fmt
         run: cargo fmt -- --check
       - name: Clippy
