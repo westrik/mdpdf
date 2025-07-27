@@ -27,6 +27,14 @@
     "index.js"
   ],
   "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "require": "./index.js",
+      "default": "./index.js"
+    }
+  },
   "napi": {
     "binaryName": "mdpdf",
     "targets": [

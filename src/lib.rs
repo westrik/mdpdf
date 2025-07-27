@@ -37,10 +37,10 @@ const MAX_BLOCKQUOTE_NESTING_LEVEL: usize = 8;
 
 #[cfg(all(not(feature = "fuzz"), feature = "node"))]
 #[napi]
-pub fn markdown_to_pdf(markdown: String) -> Result<napi::bindgen_prelude::Buffer, NapiError> {
+pub async fn markdown_to_pdf(markdown: String) -> Result<napi::bindgen_prelude::Buffer, NapiError> {
     let config = MdpdfConfig::default();
     let (typst_code, image_files) =
-        markdown_to_typst(&markdown, &config).map_err(|e| NapiError::from_reason(e))?;
+        markdown_to_typst_async(&markdown, &config).await.map_err(|e| NapiError::from_reason(e))?;
     let pdf_bytes =
         typst_to_pdf(&typst_code, &config, image_files).map_err(|e| NapiError::from_reason(e))?;
     Ok(napi::bindgen_prelude::Buffer::from(pdf_bytes))
@@ -48,10 +48,10 @@ pub fn markdown_to_pdf(markdown: String) -> Result<napi::bindgen_prelude::Buffer
 
 #[cfg(all(not(feature = "fuzz"), feature = "node"))]
 #[napi]
-pub fn markdown_to_typst_code(markdown: String) -> Result<String, NapiError> {
+pub async fn markdown_to_typst_code(markdown: String) -> Result<String, NapiError> {
     let config = MdpdfConfig::default();
     let (typst_code, _image_files) =
-        markdown_to_typst(&markdown, &config).map_err(|e| NapiError::from_reason(e))?;
+        markdown_to_typst_async(&markdown, &config).await.map_err(|e| NapiError::from_reason(e))?;
     Ok(typst_code)
 }
 

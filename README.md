@@ -38,8 +38,8 @@ pnpm add @mdpdf/mdpdf
 ```
 
 ```javascript
-import { markdownToPdf } from "@mdpdf/mdpdf";
-const pdfBytes = markdownToPdf("# this is markdown");
+import mdpdf from "@mdpdf/mdpdf";
+const pdfBytes = await mdpdf("# this is markdown");
 ```
 
 ## Development

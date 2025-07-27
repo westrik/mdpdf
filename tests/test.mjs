@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-import { markdownToTypstCode, markdownToPdf } from "../index.js";
+import { markdownToPdf, markdownToTypstCode} from "../index.js";
 
 const numFuzzRegressionTests = 37;
 
@@ -102,7 +102,7 @@ async function main() {
 
       try {
         const startTime = performance.now();
-        typstCode = markdownToTypstCode(markdown);
+        typstCode = await markdownToTypstCode(markdown);
         const endTime = performance.now();
         const typstTime = endTime - startTime;
         timingData[test].typst.push(typstTime);
@@ -129,7 +129,7 @@ async function main() {
 
       try {
         const startTime = performance.now();
-        const pdfBytes = markdownToPdf(markdown);
+        const pdfBytes = await markdownToPdf(markdown);
         const endTime = performance.now();
         const pdfTime = endTime - startTime;
         timingData[test].pdf.push(pdfTime);

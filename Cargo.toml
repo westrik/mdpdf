@@ -48,7 +48,7 @@ html_parser = "0.7"
 [dependencies.napi]
 version = "3.1"
 default-features = false
-features = ["napi9"]
+features = ["napi9", "async"]
 optional = true
 
 [dependencies.napi-derive]
@@ -78,4 +78,4 @@ optional = true
 
 [dev-dependencies.napi]
 version = "3.1"
-features = ["napi9"]
+features = ["napi9", "async"]
