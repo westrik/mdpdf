@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 
-import { markdownToPdf, markdownToTypstCode} from "../index.js";
+import { markdownToPdf, markdownToTypstCode } from "../index.js";
 
 const numFuzzRegressionTests = 37;
 
