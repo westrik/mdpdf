@@ -144,6 +144,10 @@ impl MdpdfWorld {
         // This would be nice to enable but it's pretty expensive to run
         // template.push_str("#show raw.where(block: true): block.with(stroke: 1pt + gray, inset: 1em, radius: 4pt, width: 100%)\n");
 
+        // increase spacing below h1/h2
+        template.push_str("#show heading.where(level: 1): set block(below: 0.8em)\n");
+        template.push_str("#show heading.where(level: 2): set block(below: 0.7em)\n");
+
         // numbering formats for nested ordered lists
         template.push_str("#set enum(numbering: \"1.a.i.A.I.α.\")\n");
 

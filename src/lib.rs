@@ -51,10 +51,13 @@ pub async fn markdown_to_pdf(markdown: String) -> Result<napi::bindgen_prelude::
 #[napi]
 pub async fn markdown_to_typst_code(markdown: String) -> Result<String, NapiError> {
     let config = MdpdfConfig::default();
+    // TODO: disable image URL rewriting
     let (typst_code, _image_files) = markdown_to_typst_async(&markdown, &config)
         .await
         .map_err(|e| NapiError::from_reason(e))?;
-    Ok(typst_code)
+    let template = TypstCompiler::create_document_template(&config);
+    let full_document = format!("\n{template}\n\n{typst_code}\n");
+    Ok(full_document)
 }
 
 async fn markdown_to_typst_async(

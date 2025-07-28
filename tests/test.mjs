@@ -110,7 +110,10 @@ async function main() {
         if (!PROFILE) {
           console.log(`Typst for ${test}: ${typstTime.toFixed(2)}ms`);
         }
-        fs.writeFileSync(`${test}.typ`, typstCode);
+        fs.writeFileSync(
+          path.join(import.meta.dirname, `${test}.typ`),
+          typstCode,
+        );
       } catch (error) {
         if (!PROFILE) {
           console.error(`Error generating Typst for ${test}:`, error);
@@ -118,6 +121,11 @@ async function main() {
             throw error;
           }
         }
+      }
+
+      if (!PROFILE) {
+        logMemoryUsage();
+        console.log("-".repeat(50));
       }
 
       // if (test.includes('fuzz')) {

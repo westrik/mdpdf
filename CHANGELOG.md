@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Improve header spacing.
+
 ## 0.1.1
 
 - Make exports `async`.

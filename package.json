@@ -1,6 +1,6 @@
 {
   "name": "@mdpdf/mdpdf",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Convert Markdown to PDF using a self-contained Rust binary",
   "repository": {
     "type": "git",

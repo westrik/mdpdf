@@ -1,7 +1,7 @@
 
 [package]
 name = "mdpdf"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 include = ["src/**/*","fonts/*","README.md","LICENSE"]
 license = "MIT"
