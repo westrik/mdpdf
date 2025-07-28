@@ -1,7 +1,3 @@
----
-page_size: letter
----
-
 # Markdown to PDF Test 😎 
 
 This is a demonstration of [`mdpdf`](https://github.com/westrik/mdpdf).

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3
+
+- Disable YAML metadata support.
+
 ## 0.1.2
 
 - Improve header spacing.

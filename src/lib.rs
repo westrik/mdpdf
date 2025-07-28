@@ -86,9 +86,6 @@ async fn markdown_to_typst_async(
 
     let mut blockquote_nesting_level: usize = 0;
 
-    let mut is_metadata_block = false;
-    let mut current_metadata_block_text = String::new();
-
     let mut in_definition_list_title = false;
 
     // HTML fragment accumulation for split HTML blocks
@@ -126,8 +123,6 @@ async fn markdown_to_typst_async(
             | Options::ENABLE_MATH
             | Options::ENABLE_SUPERSCRIPT // TODO not working - use <sup></sup> and <sub></sub> instead
             | Options::ENABLE_GFM
-            | Options::ENABLE_YAML_STYLE_METADATA_BLOCKS
-            | Options::ENABLE_PLUSES_DELIMITED_METADATA_BLOCKS
             | Options::ENABLE_TASKLISTS,
         // | Options::ENABLE_FOOTNOTES
     );
@@ -141,8 +136,6 @@ async fn markdown_to_typst_async(
             &mut current_image_alt
         } else if in_link {
             &mut current_link_text
-        } else if is_metadata_block {
-            &mut current_metadata_block_text
         } else if in_table_cell {
             &mut current_cell_content
         } else if in_heading {
@@ -270,8 +263,6 @@ async fn markdown_to_typst_async(
                     &mut current_code_block
                 } else if in_link {
                     &mut current_link_text
-                } else if is_metadata_block {
-                    &mut current_metadata_block_text
                 } else if in_table_cell {
                     &mut current_cell_content
                 } else if in_heading {
@@ -333,8 +324,6 @@ async fn markdown_to_typst_async(
                         &mut current_code_block
                     } else if in_link {
                         &mut current_link_text
-                    } else if is_metadata_block {
-                        &mut current_metadata_block_text
                     } else if in_table_cell {
                         &mut current_cell_content
                     } else if in_heading {
@@ -629,22 +618,8 @@ async fn markdown_to_typst_async(
             Event::End(TagEnd::Subscript) => {
                 current_output.push_str("\n]\n");
             }
-            Event::Start(Tag::MetadataBlock(_kind)) => {
-                // TODO:
-                // match kind {
-                //     MetadataBlockKind::YamlStyle => {
-                //         typst_code.push_str("\n#meta[\n");
-                //     },
-                //     MetadataBlockKind::PlusesStyle => {
-                //         typst_code.push_str("\n#meta[\n");
-                //     },
-                // }
-                is_metadata_block = true;
-            }
-            Event::End(TagEnd::MetadataBlock(_kind)) => {
-                is_metadata_block = false;
-                // println!("{}", current_metadata_block_text);
-            }
+            Event::Start(Tag::MetadataBlock(_)) => {}
+            Event::End(TagEnd::MetadataBlock(_)) => {}
             Event::Start(Tag::Table(alignment)) => {
                 // Start table with proper Typst syntax
                 table_rows.clear();
@@ -2371,6 +2346,42 @@ To facilitate merging any pull requests that you send, please:
 - Reference the issue you are addressing with the text ``` Refs #<ISSUENUMBER>.``` at the end of the subject line of each commit message, in #emph[every commit]. Replace ``` <ISSUENUMBER>``` with the number of the specific issue that your pull request is addressing.
 - Describe what each commit does individually #emph[in the commit's message]. It's best to err on the side of being more descriptive than less.
 - Update the CHANGELOGs in the #emph[last commit(s)]."#
+        );
+    }
+
+    #[test]
+    fn test_multiple_hrules() {
+        let markdown = r#"
+---
+---
+---
+abc 123
+---
+
+xyz 456
+
+---
+"#;
+        let config = MdpdfConfig::default();
+        let result = run_async_test(markdown_to_typst_async(markdown, &config));
+        assert!(result.is_ok());
+        let (typst_code, _) = result.unwrap();
+        println!("{}", typst_code);
+        assert_eq!(
+            typst_code,
+            r#"
+#hrule
+
+#hrule
+
+#hrule
+
+== abc 123 <abc-123>
+
+xyz 456
+
+#hrule
+"#
         );
     }
 }
