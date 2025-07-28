@@ -57,15 +57,18 @@ jobs:
           - host: macos-latest
             target: aarch64-apple-darwin
             build: corepack yarn build --target aarch64-apple-darwin
+          # Build in Docker so we can build with glibc 2.34
           - host: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            build: corepack yarn build --target x86_64-unknown-linux-gnu
+            build: docker run --rm -v "$GITHUB_WORKSPACE":/workspace -w /workspace amazonlinux:2023 sh -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88.0 && . \"/root/.cargo/env\" && export PATH=\"/root/.cargo/bin:${PATH}\" && curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && dnf update && dnf install -y nodejs gcc pkg-config openssl-devel && corepack enable && corepack prepare yarn@4.9.2 --activate && yarn install && yarn build --target x86_64-unknown-linux-gnu"
+          # Build in Docker so we can build with glibc 2.34
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            build: docker run --rm -v "$GITHUB_WORKSPACE":/workspace -w /workspace amazonlinux:2023 sh -c "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.88.0 && . \"/root/.cargo/env\" && export PATH=\"/root/.cargo/bin:${PATH}\" && curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && dnf update && dnf install -y nodejs gcc pkg-config openssl-devel && corepack enable && corepack prepare yarn@4.9.2 --activate && yarn install && yarn build --target aarch64-unknown-linux-gnu"
+          # Build in Docker so we can build with musl
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
             build: docker run --rm -v "$GITHUB_WORKSPACE":/workspace -w /workspace rust:1.88.0-alpine sh -c "apk add --no-cache nodejs npm yarn openssl-dev musl-dev && npm install -g corepack && corepack enable && corepack prepare yarn@4.9.2 --activate && yarn install && yarn build --target x86_64-unknown-linux-musl"
-          - host: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-            build: corepack yarn build --target aarch64-unknown-linux-gnu
           ### currently broken with "error: linker `aarch64-linux-musl-gcc` not found"
           # - host: ubuntu-latest
           #   target: aarch64-unknown-linux-musl
@@ -100,7 +103,7 @@ jobs:
             target/
           key: ${{ matrix.settings.target }}-cargo-${{ matrix.settings.host }}
       - name: Setup Docker for containerized builds
-        if: ${{ contains(matrix.settings.target, 'musl') || contains(matrix.settings.target, 'aarch64-unknown-linux') }}
+        if: ${{ contains(matrix.settings.target, 'linux') }}
         run: |
           # Docker is already available in Ubuntu runners
           # Just ensure we can run Docker commands
