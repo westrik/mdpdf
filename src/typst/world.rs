@@ -166,7 +166,7 @@ impl MdpdfWorld {
         template.push_str("#let hrule = line(length: 100%)\n");
         // blockquotes
         template.push_str("#set quote(block: true)\n");
-        template.push_str("#show quote.where(block: true): block.with(stroke: (left: 2pt + gray, rest: none), above: 1em, below: 1.2em)\n");
+        template.push_str("#show quote.where(block: true): block.with(stroke: (left: 3pt + rgb(\"#d0d7de\"), rest: none), inset: (left: 1em), above: 1.2em, below: 1.2em)\n");
 
         // This would be nice to enable but it's pretty expensive to run
         // template.push_str("#show raw.where(block: true): block.with(stroke: 1pt + gray, inset: 1em, radius: 4pt, width: 100%)\n");
