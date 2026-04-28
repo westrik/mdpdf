@@ -47,6 +47,22 @@ pub async fn markdown_to_pdf(markdown: String) -> Result<napi::bindgen_prelude::
     Ok(napi::bindgen_prelude::Buffer::from(pdf_bytes))
 }
 
+/// Evict the Typst memoization cache.
+///
+/// Typst uses a process-global memoization cache (comemo) for incremental
+/// compilation. When mdpdf is used in a long-running process, this cache
+/// grows unboundedly because each call creates a fresh MdpdfWorld, so cached
+/// entries from previous compilations are never reused but never freed either.
+///
+/// Call this function periodically (e.g. after each `markdownToPdf` call) to
+/// reclaim native memory. Pass `maxAge = 0` to clear the entire cache, or a
+/// higher value to retain recently-used entries.
+#[cfg(all(not(feature = "fuzz"), feature = "node"))]
+#[napi]
+pub fn evict(max_age: u32) {
+    ::typst::comemo::evict(max_age as usize);
+}
+
 #[cfg(all(not(feature = "fuzz"), feature = "node"))]
 #[napi]
 pub async fn markdown_to_typst_code(markdown: String) -> Result<String, NapiError> {
@@ -965,6 +981,14 @@ pub fn markdown_to_typst(
 
     // Run the async function
     rt.block_on(markdown_to_typst_async(markdown, config))
+}
+
+/// Evict the Typst memoization cache (Rust API).
+///
+/// See the NAPI `evict` function for details. Pass `max_age = 0` to clear
+/// the entire cache.
+pub fn evict_cache(max_age: usize) {
+    ::typst::comemo::evict(max_age);
 }
 
 pub fn typst_to_pdf(
