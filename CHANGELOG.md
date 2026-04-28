@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+
+- Expose `evict()` to let callers reclaim native memory.
+
 ## 0.1.4
 
 - Build binaries for `x86_64-unknown-linux-gnu` and `aarch64-unknown-linux-gnu` with glibc 2.34 to support, e.g., Amazon Linux 2023.
