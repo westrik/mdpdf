@@ -3,3 +3,15 @@
 export declare function markdownToPdf(markdown: string): Promise<Buffer>;
 
 export declare function markdownToTypstCode(markdown: string): Promise<string>;
+
+/**
+ * Evict the Typst memoization cache to reclaim native memory.
+ *
+ * Typst uses a process-global memoization cache for incremental compilation.
+ * In a long-running process, this cache grows unboundedly since each call
+ * creates a fresh compilation context and cached entries are never reused.
+ *
+ * @param maxAge - Entries older than this are evicted. Pass `0` to clear
+ *                 the entire cache.
+ */
+export declare function evict(maxAge: number): void;
