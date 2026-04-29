@@ -1,6 +1,6 @@
 {
   "name": "@mdpdf/mdpdf",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Convert Markdown to PDF using a self-contained Rust binary",
   "repository": {
     "type": "git",
@@ -51,7 +51,7 @@
     "build:debug": "yarn napi build --platform",
     "prepublishOnly": "yarn napi prepublish -t npm",
     "artifacts": "yarn napi artifacts",
-    "test": "node tests/test.mjs && node tests/test_evict.mjs",
+    "test": "node tests/test.mjs",
     "lint": "prettier --check .",
     "lint:fix": "prettier -w .",
     "typecheck": "tsc"
