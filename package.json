@@ -51,7 +51,7 @@
     "build:debug": "yarn napi build --platform",
     "prepublishOnly": "yarn napi prepublish -t npm",
     "artifacts": "yarn napi artifacts",
-    "test": "node tests/test.mjs",
+    "test": "node tests/test.mjs && node tests/test_evict.mjs",
     "lint": "prettier --check .",
     "lint:fix": "prettier -w .",
     "typecheck": "tsc"

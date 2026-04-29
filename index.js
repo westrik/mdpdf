@@ -411,5 +411,6 @@ if (!nativeBinding) {
 }
 
 module.exports = nativeBinding;
+module.exports.evict = nativeBinding.evict;
 module.exports.markdownToPdf = nativeBinding.markdownToPdf;
 module.exports.markdownToTypstCode = nativeBinding.markdownToTypstCode;
