@@ -14,6 +14,12 @@
  */
 export declare function evict(maxAge: number): void;
 
-export declare function markdownToPdf(markdown: string): Promise<Buffer>;
+export declare function markdownToPdf(
+  markdown: string,
+  typstConfig?: string | undefined | null,
+): Promise<Buffer>;
 
-export declare function markdownToTypstCode(markdown: string): Promise<string>;
+export declare function markdownToTypstCode(
+  markdown: string,
+  typstConfig?: string | undefined | null,
+): Promise<string>;

@@ -17,6 +17,18 @@ pub struct MdpdfWorld {
     font_data: Vec<Vec<u8>>, // Keep font data alive
 }
 
+/// System fonts discovered via typst-kit (lazy: searched once per process,
+/// and individual font files are only loaded into memory when used).
+fn system_fonts() -> &'static typst_kit::fonts::Fonts {
+    static SYSTEM_FONTS: once_cell::sync::Lazy<typst_kit::fonts::Fonts> =
+        once_cell::sync::Lazy::new(|| {
+            typst_kit::fonts::FontSearcher::new()
+                .include_system_fonts(true)
+                .search()
+        });
+    &SYSTEM_FONTS
+}
+
 impl MdpdfWorld {
     pub fn new(config: MdpdfConfig, main_code: String, files: HashMap<String, Vec<u8>>) -> Self {
         // Create a font book and populate it with embedded fonts
@@ -33,6 +45,16 @@ impl MdpdfWorld {
                 font_book.push(info.clone());
                 font_data.push(font_bytes);
             }
+        }
+
+        // Append system fonts after the embedded ones so embedded fonts keep
+        // priority for fallback selection. Indices past `font_data.len()` map
+        // into `system_fonts().fonts`.
+        let system = system_fonts();
+        let mut index = 0;
+        while let Some(info) = system.book.info(index) {
+            font_book.push(info.clone());
+            index += 1;
         }
 
         let fonts = LazyHash::new(font_book);
@@ -60,6 +82,11 @@ impl MdpdfWorld {
             // DejaVu fonts
             include_bytes!("../../fonts/dejavu/DejaVuSansMono.ttf").to_vec(),
             include_bytes!("../../fonts/dejavu/DejaVuSansMono-Bold.ttf").to_vec(),
+            // Liberation Sans fonts
+            include_bytes!("../../fonts/liberation/LiberationSans-Regular.ttf").to_vec(),
+            include_bytes!("../../fonts/liberation/LiberationSans-Bold.ttf").to_vec(),
+            include_bytes!("../../fonts/liberation/LiberationSans-Italic.ttf").to_vec(),
+            include_bytes!("../../fonts/liberation/LiberationSans-BoldItalic.ttf").to_vec(),
         ]
     }
 
@@ -162,6 +189,16 @@ impl MdpdfWorld {
         if let Some(footer) = &self.config.footer {
             template.push_str(&format!("#set page(footer: [{footer}])\n"));
         }
+
+        // Custom user-provided Typst preamble; appended last so its
+        // `#set`/`#show` rules override the defaults above.
+        if let Some(custom_preamble) = &self.config.custom_preamble {
+            template.push_str(custom_preamble);
+            if !custom_preamble.ends_with('\n') {
+                template.push('\n');
+            }
+        }
+
         template
     }
 }
@@ -197,13 +234,12 @@ impl World for MdpdfWorld {
         }
     }
     fn font(&self, id: usize) -> Option<Font> {
-        // Return font from our stored font data
-        if id < self.font_data.len()
-            && let Some(font) = Font::new(Bytes::new(self.font_data[id].clone()), 0)
-        {
-            return Some(font);
+        // Embedded fonts come first in the font book
+        if id < self.font_data.len() {
+            return Font::new(Bytes::new(self.font_data[id].clone()), 0);
         }
-        None
+        // Remaining indices map to lazily-loaded system fonts
+        system_fonts().fonts.get(id - self.font_data.len())?.get()
     }
     fn today(&self, _offset: Option<i64>) -> Option<typst::foundations::Datetime> {
         None

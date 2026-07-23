@@ -184,6 +184,7 @@ fn main() {
         header: None,
         footer: None,
         image_handling: Some(mdpdf::config::ImageHandlingConfig::default()),
+        custom_preamble: None,
     };
 
     // Convert markdown to PDF
