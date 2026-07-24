@@ -10,6 +10,9 @@ pub struct MdpdfConfig {
     pub header: Option<String>,
     pub footer: Option<String>,
     pub image_handling: Option<ImageHandlingConfig>,
+    /// Raw Typst code appended after the generated document template.
+    /// Later `#set`/`#show` rules override the built-in defaults.
+    pub custom_preamble: Option<String>,
 }
 
 impl Default for MdpdfConfig {
@@ -22,6 +25,7 @@ impl Default for MdpdfConfig {
             header: None,
             footer: None,
             image_handling: Some(ImageHandlingConfig::default()),
+            custom_preamble: None,
         }
     }
 }

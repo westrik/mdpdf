@@ -1534,7 +1534,7 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
 name = "mdpdf"
-version = "0.1.5"
+version = "0.1.6"
 dependencies = [
  "anyhow",
  "base64 0.21.7",
@@ -1554,6 +1554,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "typst",
+ "typst-kit",
  "typst-pdf",
  "url",
 ]
@@ -3112,6 +3113,23 @@ dependencies = [
  "typst-library",
  "typst-macros",
  "typst-svg",
+ "typst-syntax",
+ "typst-timing",
+ "typst-utils",
+]
+
+[[package]]
+name = "typst-kit"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "818fa9d54e1663fe20d15f6359945616cc4026d68c4de6c4eb0add7556fe2a90"
+dependencies = [
+ "ecow",
+ "fontdb",
+ "once_cell",
+ "serde",
+ "serde_json",
+ "typst-library",
  "typst-syntax",
  "typst-timing",
  "typst-utils",

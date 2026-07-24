@@ -37,8 +37,14 @@ const MAX_BLOCKQUOTE_NESTING_LEVEL: usize = 8;
 
 #[cfg(all(not(feature = "fuzz"), feature = "node"))]
 #[napi]
-pub async fn markdown_to_pdf(markdown: String) -> Result<napi::bindgen_prelude::Buffer, NapiError> {
-    let config = MdpdfConfig::default();
+pub async fn markdown_to_pdf(
+    markdown: String,
+    typst_config: Option<String>,
+) -> Result<napi::bindgen_prelude::Buffer, NapiError> {
+    let config = MdpdfConfig {
+        custom_preamble: typst_config,
+        ..MdpdfConfig::default()
+    };
     let (typst_code, image_files) = markdown_to_typst_async(&markdown, &config)
         .await
         .map_err(|e| NapiError::from_reason(e))?;
@@ -65,8 +71,14 @@ pub fn evict(max_age: u32) {
 
 #[cfg(all(not(feature = "fuzz"), feature = "node"))]
 #[napi]
-pub async fn markdown_to_typst_code(markdown: String) -> Result<String, NapiError> {
-    let config = MdpdfConfig::default();
+pub async fn markdown_to_typst_code(
+    markdown: String,
+    typst_config: Option<String>,
+) -> Result<String, NapiError> {
+    let config = MdpdfConfig {
+        custom_preamble: typst_config,
+        ..MdpdfConfig::default()
+    };
     // TODO: disable image URL rewriting
     let (typst_code, _image_files) = markdown_to_typst_async(&markdown, &config)
         .await
