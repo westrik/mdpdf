@@ -47,36 +47,36 @@ html-escape = "0.2"
 html_parser = "0.7"
 
 [dependencies.napi]
-version = "3.1"
+version = "2"
 default-features = false
 features = ["napi9", "async"]
 optional = true
 
 [dependencies.napi-derive]
-version = "3.1"
+version = "2"
 optional = true
 
 [dependencies.serde]
-version = "1.0"
+version = "1"
 features = ["derive"]
 
 [dependencies.reqwest]
-version = "0.11"
+version = "0.12"
 features = ["json"]
 
 [dependencies.tokio]
-version = "1.0"
+version = "1"
 default-features = false
 features = ["rt-multi-thread","macros","fs"]
 
 [dependencies.clap]
-version = "4.0"
+version = "4"
 features = ["derive"]
 
 [build-dependencies.napi-build]
-version = "2.2"
+version = "2"
 optional = true
 
 [dev-dependencies.napi]
-version = "3.1"
+version = "2"
 features = ["napi9", "async"]
