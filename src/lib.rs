@@ -35,6 +35,32 @@ use crate::utils::images::ImageProcessor;
 const MAX_LIST_NESTING_LEVEL: usize = 15;
 const MAX_BLOCKQUOTE_NESTING_LEVEL: usize = 8;
 
+fn github_alert_open(kind: BlockQuoteKind) -> String {
+    let (title, color, icon) = match kind {
+        BlockQuoteKind::Note => ("Note", "#0969da", "circle"),
+        BlockQuoteKind::Tip => ("Tip", "#1a7f37", "diamond"),
+        BlockQuoteKind::Important => ("Important", "#8250df", "circle"),
+        BlockQuoteKind::Warning => ("Warning", "#9a6700", "triangle"),
+        BlockQuoteKind::Caution => ("Caution", "#cf222e", "triangle"),
+    };
+
+    let icon = match icon {
+        "diamond" => format!(
+            "#box(width: 0.9em, height: 0.9em, baseline: -0.1em)[#rotate(45deg, rect(width: 0.48em, height: 0.48em, stroke: 1.4pt + rgb(\"{color}\")))]"
+        ),
+        "triangle" => format!(
+            "#box(width: 0.9em, height: 0.9em, baseline: -0.1em)[#polygon((0.45em, 0em), (0.9em, 0.8em), (0em, 0.8em), stroke: 1.4pt + rgb(\"{color}\"))]"
+        ),
+        _ => format!(
+            "#box(width: 0.9em, height: 0.9em, baseline: -0.1em)[#circle(radius: 0.36em, stroke: 1.4pt + rgb(\"{color}\"))]"
+        ),
+    };
+
+    format!(
+        "\n#block(stroke: (left: 4pt + rgb(\"{color}\"), rest: none), inset: (left: 1em), above: 1.2em, below: 1.2em)[\n#block(below: 0.6em)[{icon} #text(fill: rgb(\"{color}\"), weight: \"semibold\")[{title}]]\n"
+    )
+}
+
 #[cfg(all(not(feature = "fuzz"), feature = "node"))]
 #[napi]
 pub async fn markdown_to_pdf(
@@ -413,25 +439,14 @@ async fn markdown_to_typst_async(
                 blockquote_nesting_level += 1;
 
                 if blockquote_nesting_level <= MAX_BLOCKQUOTE_NESTING_LEVEL {
-                    // Only create #quote[] blocks for the first N levels
-                    typst_code.push_str("\n#quote[\n");
-                    match kind {
-                        Some(BlockQuoteKind::Note) => {
-                            typst_code.push_str("\n#strong(text(blue)[📋 Note]) \n");
+                    if blockquote_nesting_level == 1 {
+                        if let Some(kind) = kind {
+                            typst_code.push_str(&github_alert_open(kind));
+                        } else {
+                            typst_code.push_str("\n#quote[\n");
                         }
-                        Some(BlockQuoteKind::Tip) => {
-                            typst_code.push_str("\n#strong(text(green)[💡 Tip]) \n");
-                        }
-                        Some(BlockQuoteKind::Important) => {
-                            typst_code.push_str("\n#strong(text(purple)[️☝️ Important]) \n");
-                        }
-                        Some(BlockQuoteKind::Warning) => {
-                            typst_code.push_str("\n#strong(text(orange)[⚠️ Warning]) \n");
-                        }
-                        Some(BlockQuoteKind::Caution) => {
-                            typst_code.push_str("\n#strong(text(red)[🚨️ Caution]) \n");
-                        }
-                        _ => {}
+                    } else {
+                        typst_code.push_str("\n#quote[\n");
                     }
                 }
                 // For deeper nesting, do nothing - just continue at the same level
@@ -2419,5 +2434,28 @@ xyz 456
 #hrule
 "#
         );
+    }
+
+    #[test]
+    fn renders_github_alerts_with_type_specific_styles() {
+        let markdown = "> [!NOTE]\n> Note body.\n\n> [!CAUTION]\n> Caution body.";
+        let config = MdpdfConfig::default();
+        let (typst_code, _) = run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
+
+        assert!(typst_code.contains("left: 4pt + rgb(\"#0969da\")"));
+        assert!(typst_code.contains("[Note]"));
+        assert!(typst_code.contains("left: 4pt + rgb(\"#cf222e\")"));
+        assert!(typst_code.contains("[Caution]"));
+        assert!(!typst_code.contains("📋"));
+        assert!(!typst_code.contains("🚨"));
+    }
+
+    #[test]
+    fn leaves_ordinary_blockquotes_as_quotes() {
+        let config = MdpdfConfig::default();
+        let (typst_code, _) =
+            run_async_test(markdown_to_typst_async("> Ordinary quote.", &config)).unwrap();
+        assert!(typst_code.contains("#quote["));
+        assert!(!typst_code.contains("left: 4pt"));
     }
 }
