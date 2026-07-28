@@ -20,6 +20,7 @@ use pulldown_cmark::{
     Alignment, BlockQuoteKind, CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
 };
 use std::collections::HashMap;
+use tex2typst_rs::tex2typst;
 use tokio::runtime::Runtime;
 
 pub mod config;
@@ -96,6 +97,7 @@ async fn markdown_to_typst_async(
 
     let mut in_code_block = false;
     let mut current_code_block = String::new();
+    let mut current_code_block_lang = String::new();
 
     let mut in_link = false;
     let mut current_link_text = String::new();
@@ -249,10 +251,11 @@ async fn markdown_to_typst_async(
                     CodeBlockKind::Fenced(lang) => lang.to_string(),
                     CodeBlockKind::Indented => String::new(),
                 };
+                current_code_block_lang = language.to_ascii_lowercase();
                 // Start code block with syntax highlighting if language is specified
-                if !language.is_empty() {
+                if !language.is_empty() && language != "math" {
                     typst_code.push_str(&format!("```{language}\n"));
-                } else {
+                } else if language != "math" {
                     typst_code.push_str("```\n");
                 }
             }
@@ -263,12 +266,18 @@ async fn markdown_to_typst_async(
                 if !closed_tags.is_empty() {
                     typst_code.push_str(&closed_tags);
                 }
-                // Add the collected code content
-                typst_code.push_str(&current_code_block.replace("```", "\\`\\`\\`"));
-                if current_code_block.ends_with("`") {
-                    typst_code.push(' ');
+                if current_code_block_lang == "math" {
+                    let converted = convert_tex_math(&current_code_block);
+                    typst_code.push_str(&format!("\n$ {converted} $\n"));
+                } else {
+                    // Add the collected code content
+                    typst_code.push_str(&current_code_block.replace("```", "\\`\\`\\`"));
+                    if current_code_block.ends_with("`") {
+                        typst_code.push(' ');
+                    }
+                    typst_code.push_str("```\n");
                 }
-                typst_code.push_str("```\n");
+                current_code_block_lang.clear();
             }
             Event::Start(Tag::Link { dest_url, .. }) => {
                 in_link = true;
@@ -555,21 +564,12 @@ async fn markdown_to_typst_async(
                 );
             }
             Event::InlineMath(math) => {
-                // TODO
-                let filtered_math = filter_problematic_unicode(&math);
-                let padding = if filtered_math.ends_with("`") {
-                    " "
-                } else {
-                    ""
-                };
-                current_output.push_str(&format!(" ``` {filtered_math}{padding}```"));
+                let converted = convert_tex_math(&math);
+                current_output.push_str(&format!(" ${converted}$ "));
             }
             Event::DisplayMath(math) => {
-                // TODO
-                current_output.push_str(&format!(
-                    "```math\n{}```\n",
-                    filter_problematic_unicode(&math)
-                ));
+                let converted = convert_tex_math(&math);
+                current_output.push_str(&format!("\n$ {converted} $\n"));
             }
             Event::Start(Tag::Paragraph) => {
                 if !in_code_block && !in_list_item {
@@ -842,6 +842,14 @@ fn filter_control_characters(text: &str) -> String {
 /// Filter out problematic Unicode characters that can cause issues in Typst's text shaping engine.
 /// This focuses on the specific characters that caused panics or other errors in fuzz testing.
 /// Also wraps RTL text blocks with directional text wrappers to prevent mixed LTR/RTL panics.
+fn convert_tex_math(text: &str) -> String {
+    let filtered: String = text
+        .chars()
+        .filter(|character| !character.is_control() || matches!(character, '\n' | '\r' | '\t'))
+        .collect();
+    tex2typst(&filtered).unwrap_or(filtered)
+}
+
 pub fn filter_problematic_unicode(text: &str) -> String {
     let mut result = String::new();
     let mut current_rtl_block = String::new();
@@ -2056,7 +2064,7 @@ Term 2
         assert_eq!(
             typst_code,
             r#"
-#emph[S ``` -*!0` ```]\`
+#emph[S $-*! 0 `$ ]\`
 "#
         );
     }
@@ -2419,5 +2427,37 @@ xyz 456
 #hrule
 "#
         );
+    }
+
+    #[test]
+    fn converts_inline_and_display_tex_math() {
+        let markdown = "Inline $\\frac{1}{2}$.\n\n$$\\sum_{i=0}^n i^2$$";
+        let config = MdpdfConfig::default();
+        let (typst_code, _) = run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
+
+        assert!(typst_code.contains("$1/2$"), "{typst_code}");
+        assert!(typst_code.contains("sum_(i = 0)^n i^2"), "{typst_code}");
+    }
+
+    #[test]
+    fn converts_math_fences_without_changing_code_fences() {
+        let markdown = "```math\n\\sqrt{x}\n```\n\n```rust\nlet x = 1;\n```";
+        let config = MdpdfConfig::default();
+        let (typst_code, _) = run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
+
+        assert!(typst_code.contains("$ sqrt(x) $"));
+        assert!(typst_code.contains("```rust\nlet x = 1;\n```"));
+    }
+
+    #[test]
+    fn preserves_unconvertible_math_instead_of_aborting_conversion() {
+        let markdown = "This is $\\unknowncommand{x}$ and this remains text.";
+        let config = MdpdfConfig::default();
+        let result = run_async_test(markdown_to_typst_async(markdown, &config));
+
+        assert!(result.is_ok());
+        let (typst_code, _) = result.unwrap();
+        assert!(typst_code.contains("unknowncommand"));
+        assert!(typst_code.contains("this remains text"));
     }
 }

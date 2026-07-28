@@ -45,6 +45,7 @@ url = "2.5"
 tempfile = "3.8"
 html-escape = "0.2"
 html_parser = "0.7"
+tex2typst-rs = "0.4.1"
 
 [dependencies.napi]
 version = "2"

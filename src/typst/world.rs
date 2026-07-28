@@ -148,6 +148,7 @@ impl MdpdfWorld {
             .as_deref()
             .unwrap_or("Libertinus Serif");
         template.push_str(&format!("#set text(font: \"{body_font}\")\n"));
+        template.push_str("#show math.equation: set text(font: (\"STIX Two Math\", \"New Computer Modern Math\", \"Libertinus Math\", \"Latin Modern Math\"))\n");
 
         // Set font size if specified in config
         if let Some(font_size) = &self.config.font_size {

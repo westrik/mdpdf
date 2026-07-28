@@ -1567,6 +1567,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "tex2typst-rs",
  "tokio",
  "typst",
  "typst-kit",
@@ -2911,6 +2912,16 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "tex2typst-rs"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b0b6b6ad0966ace50ba5e817e4f48d759857c015f5936d4976232df786d432d"
+dependencies = [
+ "phf",
+ "regex",
 ]
 
 [[package]]
