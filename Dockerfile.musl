@@ -1,0 +1,20 @@
+# Verify the aarch64-unknown-linux-musl N-API build in a native ARM64 Alpine environment.
+FROM --platform=linux/arm64 rust:1.88.0-alpine
+
+WORKDIR /workspace
+
+RUN apk add --no-cache build-base musl-dev nodejs npm openssl-dev \
+    && npm install --global corepack \
+    && corepack enable \
+    && corepack prepare yarn@4.9.2 --activate
+
+COPY package.json yarn.lock ./
+RUN yarn install --immutable
+
+COPY . .
+
+RUN yarn build --target aarch64-unknown-linux-musl \
+    && test -s mdpdf.linux-arm64-musl.node
+
+# Build with Docker Buildx/QEMU when the host is not ARM64:
+# docker build --platform linux/arm64 -f Dockerfile.musl .
