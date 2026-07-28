@@ -245,3 +245,18 @@ impl World for MdpdfWorld {
         None
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uses_github_blockquote_styling() {
+        let world = MdpdfWorld::new(MdpdfConfig::default(), String::new(), HashMap::new());
+        let template = world.create_document_template();
+        assert!(
+            template
+                .contains("stroke: (left: 3pt + rgb(\"#d0d7de\"), rest: none), inset: (left: 1em)")
+        );
+    }
+}
