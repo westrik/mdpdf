@@ -30,6 +30,25 @@ impl Default for MdpdfConfig {
     }
 }
 
+impl MdpdfConfig {
+    pub fn parse_dimension(value: &str) -> Result<f64, String> {
+        let value = value.trim();
+        let (number, divisor) = if let Some(value) = value.strip_suffix("in") {
+            (value, 1.0)
+        } else if let Some(value) = value.strip_suffix("mm") {
+            (value, 25.4)
+        } else if let Some(value) = value.strip_suffix("cm") {
+            (value, 2.54)
+        } else {
+            (value, 1.0)
+        };
+        number
+            .parse::<f64>()
+            .map(|number| number / divisor)
+            .map_err(|_| format!("Invalid dimension: {value}"))
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PageSize {
     A4,
@@ -38,12 +57,45 @@ pub enum PageSize {
     Custom { width: f64, height: f64 },
 }
 
+impl PageSize {
+    pub fn parse(value: &str) -> Result<Self, String> {
+        match value.trim().to_ascii_lowercase().as_str() {
+            "a4" => Ok(Self::A4),
+            "letter" => Ok(Self::Letter),
+            "legal" => Ok(Self::Legal),
+            value if value.contains('x') => {
+                let parts: Vec<_> = value.split('x').collect();
+                if parts.len() != 2 {
+                    return Err("Custom page size must be WIDTHxHEIGHT".to_string());
+                }
+                Ok(Self::Custom {
+                    width: MdpdfConfig::parse_dimension(parts[0])?,
+                    height: MdpdfConfig::parse_dimension(parts[1])?,
+                })
+            }
+            value => Err(format!("Invalid page size '{value}'")),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Margins {
     pub top: f64,
     pub bottom: f64,
     pub left: f64,
     pub right: f64,
+}
+
+impl Margins {
+    pub fn parse(value: &str) -> Result<Self, String> {
+        let value = MdpdfConfig::parse_dimension(value)?;
+        Ok(Self {
+            top: value,
+            bottom: value,
+            left: value,
+            right: value,
+        })
+    }
 }
 
 impl Default for Margins {
@@ -80,5 +132,23 @@ impl Default for ImageHandlingConfig {
 impl ImageHandlingConfig {
     pub fn cache_directory_path(&self) -> Option<PathBuf> {
         self.cache_directory.as_ref().map(PathBuf::from)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_dimensions_and_page_sizes() {
+        assert!((MdpdfConfig::parse_dimension("25.4mm").unwrap() - 1.0).abs() < 1e-9);
+        assert!((MdpdfConfig::parse_dimension("2.54cm").unwrap() - 1.0).abs() < 1e-9);
+        assert!(matches!(PageSize::parse("a4"), Ok(PageSize::A4)));
+        assert!(matches!(
+            PageSize::parse("8.5inx11in"),
+            Ok(PageSize::Custom { .. })
+        ));
+        assert!(Margins::parse("1in").is_ok());
+        assert!(PageSize::parse("not-a-size").is_err());
     }
 }
