@@ -19,7 +19,7 @@ use napi_derive::napi;
 use pulldown_cmark::{
     Alignment, BlockQuoteKind, CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tokio::runtime::Runtime;
 
 pub mod config;
@@ -93,6 +93,9 @@ async fn markdown_to_typst_async(
     config: &MdpdfConfig,
 ) -> Result<(String, HashMap<String, Vec<u8>>), String> {
     let mut typst_code = String::new();
+    let footnote_definitions = collect_footnote_definitions(markdown);
+    let mut emitted_footnotes = HashSet::new();
+    let mut in_footnote_definition = false;
 
     let mut in_code_block = false;
     let mut current_code_block = String::new();
@@ -151,11 +154,21 @@ async fn markdown_to_typst_async(
             | Options::ENABLE_MATH
             | Options::ENABLE_SUPERSCRIPT // TODO not working - use <sup></sup> and <sub></sub> instead
             | Options::ENABLE_GFM
-            | Options::ENABLE_TASKLISTS,
-        // | Options::ENABLE_FOOTNOTES
+            | Options::ENABLE_TASKLISTS
+            | Options::ENABLE_FOOTNOTES,
     );
 
     for event in parser {
+        if matches!(&event, Event::Start(Tag::FootnoteDefinition(_))) {
+            in_footnote_definition = true;
+            continue;
+        }
+        if in_footnote_definition {
+            if matches!(&event, Event::End(TagEnd::FootnoteDefinition)) {
+                in_footnote_definition = false;
+            }
+            continue;
+        }
         // println!("event: {:?}", event);
         // Get the current output buffer based on context
         let current_output: &mut String = if in_code_block {
@@ -625,15 +638,18 @@ async fn markdown_to_typst_async(
                 current_output.push('\n');
             }
             Event::FootnoteReference(fnref) => {
-                current_output.push_str(&format!("^{fnref}"));
+                let id = fnref.to_string();
+                if let Some(content) = footnote_definitions.get(&id) {
+                    if emitted_footnotes.insert(id.clone()) {
+                        current_output.push_str(&format!("#footnote[{content}] <footnote-{id}>"));
+                    } else {
+                        current_output.push_str(&format!("#ref(<footnote-{id}>)"));
+                    }
+                } else {
+                    current_output.push_str(&format!("[^{id}]"));
+                }
             }
-            Event::Start(Tag::FootnoteDefinition(fndef)) => {
-                current_output.push_str(&format!("^{fndef}"));
-            }
-            Event::End(TagEnd::FootnoteDefinition) => {
-                // Note: fndef is not available in End event, so we just close the footnote
-                current_output.push('\n');
-            }
+            Event::Start(Tag::FootnoteDefinition(_)) | Event::End(TagEnd::FootnoteDefinition) => {}
             Event::Start(Tag::Superscript) => {
                 current_output.push_str("\n#super[\n");
             }
@@ -789,6 +805,31 @@ pub fn escape_text(text: &str) -> String {
     let escaped = escape_text_without_filtering(&decoded);
     // handle RTL at this point
     filter_problematic_unicode(&escaped)
+}
+
+fn collect_footnote_definitions(markdown: &str) -> HashMap<String, String> {
+    let mut definitions = HashMap::new();
+    let mut current_id = None;
+    let mut current_text = String::new();
+
+    for event in Parser::new_ext(markdown, Options::ENABLE_FOOTNOTES) {
+        match event {
+            Event::Start(Tag::FootnoteDefinition(id)) => {
+                current_id = Some(id.to_string());
+                current_text.clear();
+            }
+            Event::End(TagEnd::FootnoteDefinition) => {
+                if let Some(id) = current_id.take() {
+                    definitions.insert(id, escape_text(&current_text));
+                }
+            }
+            Event::Text(text) if current_id.is_some() => current_text.push_str(&text),
+            Event::SoftBreak | Event::HardBreak if current_id.is_some() => current_text.push('\n'),
+            _ => {}
+        }
+    }
+
+    definitions
 }
 
 fn insert_zws_between_characters(text: &str) -> String {
@@ -2419,5 +2460,24 @@ xyz 456
 #hrule
 "#
         );
+    }
+
+    #[test]
+    fn renders_and_reuses_markdown_footnotes() {
+        let markdown = "First[^source]. Second[^source].\n\n[^source]: Shared note.";
+        let config = MdpdfConfig::default();
+        let (typst_code, _) = run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
+
+        assert_eq!(typst_code.matches("#footnote[").count(), 1);
+        assert!(typst_code.contains("#ref(<footnote-source>)"));
+        assert!(!typst_code.contains("Shared note.\n"));
+    }
+
+    #[test]
+    fn preserves_undefined_footnote_references() {
+        let config = MdpdfConfig::default();
+        let (typst_code, _) =
+            run_async_test(markdown_to_typst_async("Missing[^nope]", &config)).unwrap();
+        assert!(typst_code.contains("nope"), "{typst_code}");
     }
 }
