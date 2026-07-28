@@ -13,6 +13,7 @@ pub struct MdpdfConfig {
     /// Raw Typst code appended after the generated document template.
     /// Later `#set`/`#show` rules override the built-in defaults.
     pub custom_preamble: Option<String>,
+    pub toc: bool,
 }
 
 impl Default for MdpdfConfig {
@@ -26,6 +27,7 @@ impl Default for MdpdfConfig {
             footer: None,
             image_handling: Some(ImageHandlingConfig::default()),
             custom_preamble: None,
+            toc: false,
         }
     }
 }

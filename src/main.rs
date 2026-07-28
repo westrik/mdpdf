@@ -33,6 +33,10 @@ struct Args {
     /// Font size in points
     #[arg(long, value_name = "POINTS", default_value = "13")]
     font_size: f64,
+
+    /// Add a table of contents at the beginning of the document
+    #[arg(long)]
+    toc: bool,
 }
 
 fn parse_custom_page_size(value: &str) -> Result<mdpdf::config::PageSize, String> {
@@ -185,6 +189,7 @@ fn main() {
         footer: None,
         image_handling: Some(mdpdf::config::ImageHandlingConfig::default()),
         custom_preamble: None,
+        toc: args.toc,
     };
 
     // Convert markdown to PDF
