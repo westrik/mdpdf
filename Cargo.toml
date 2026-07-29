@@ -33,7 +33,7 @@ strip = true
 [dependencies]
 typst = "0.13.0"
 typst-pdf = "0.13.0"
-typst-kit = { version = "0.13.0", default-features = false, features = ["fonts"] }
+typst-kit = { version = "0.13.0", default-features = false, features = ["embed-fonts"] }
 pulldown-cmark = "0.13"
 serde_json = "1.0"
 anyhow = "1.0"
@@ -45,6 +45,7 @@ url = "2.5"
 tempfile = "3.8"
 html-escape = "0.2"
 html_parser = "0.7"
+tex2typst-rs = "0.4.1"
 
 [dependencies.napi]
 version = "2"

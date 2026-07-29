@@ -1567,6 +1567,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "tex2typst-rs",
  "tokio",
  "typst",
  "typst-kit",
@@ -2914,6 +2915,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tex2typst-rs"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b0b6b6ad0966ace50ba5e817e4f48d759857c015f5936d4976232df786d432d"
+dependencies = [
+ "phf",
+ "regex",
+]
+
+[[package]]
 name = "thin-vec"
 version = "0.2.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3332,6 +3343,7 @@ dependencies = [
  "once_cell",
  "serde",
  "serde_json",
+ "typst-assets",
  "typst-library",
  "typst-syntax",
  "typst-timing",
