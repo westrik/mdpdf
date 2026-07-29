@@ -267,8 +267,10 @@ async fn markdown_to_typst_async(
                     typst_code.push_str(&closed_tags);
                 }
                 if current_code_block_lang == "math" {
-                    let converted = convert_tex_math(&current_code_block);
-                    typst_code.push_str(&format!("\n$ {converted} $\n"));
+                    typst_code.push_str(&format!(
+                        "\n{}\n",
+                        render_tex_math(&current_code_block, true)
+                    ));
                 } else {
                     // Add the collected code content
                     typst_code.push_str(&current_code_block.replace("```", "\\`\\`\\`"));
@@ -564,12 +566,10 @@ async fn markdown_to_typst_async(
                 );
             }
             Event::InlineMath(math) => {
-                let converted = convert_tex_math(&math);
-                current_output.push_str(&format!(" ${converted}$ "));
+                current_output.push_str(&format!(" {} ", render_tex_math(&math, false)));
             }
             Event::DisplayMath(math) => {
-                let converted = convert_tex_math(&math);
-                current_output.push_str(&format!("\n$ {converted} $\n"));
+                current_output.push_str(&format!("\n{}\n", render_tex_math(&math, true)));
             }
             Event::Start(Tag::Paragraph) => {
                 if !in_code_block && !in_list_item {
@@ -842,12 +842,23 @@ fn filter_control_characters(text: &str) -> String {
 /// Filter out problematic Unicode characters that can cause issues in Typst's text shaping engine.
 /// This focuses on the specific characters that caused panics or other errors in fuzz testing.
 /// Also wraps RTL text blocks with directional text wrappers to prevent mixed LTR/RTL panics.
-fn convert_tex_math(text: &str) -> String {
+fn convert_tex_math(text: &str) -> Result<String, String> {
     let filtered: String = text
         .chars()
         .filter(|character| !character.is_control() || matches!(character, '\n' | '\r' | '\t'))
         .collect();
-    tex2typst(&filtered).unwrap_or(filtered)
+    tex2typst(&filtered).map_err(|_| filtered)
+}
+
+fn render_tex_math(text: &str, display: bool) -> String {
+    match convert_tex_math(text) {
+        Ok(converted) if display => format!("$ {converted} $"),
+        Ok(converted) => format!("${converted}$"),
+        // TeX that the converter does not understand must not be inserted as
+        // Typst math code: it can otherwise make the whole document fail to
+        // compile. Preserve it as inline raw text instead.
+        Err(original) => format!("#raw({original:?})"),
+    }
 }
 
 pub fn filter_problematic_unicode(text: &str) -> String {
@@ -2451,13 +2462,14 @@ xyz 456
 
     #[test]
     fn preserves_unconvertible_math_instead_of_aborting_conversion() {
-        let markdown = "This is $\\unknowncommand{x}$ and this remains text.";
+        let markdown = "This is $\\frac{1}$ and this remains text.";
         let config = MdpdfConfig::default();
         let result = run_async_test(markdown_to_typst_async(markdown, &config));
 
         assert!(result.is_ok());
         let (typst_code, _) = result.unwrap();
-        assert!(typst_code.contains("unknowncommand"));
+        assert!(typst_code.contains("#raw("), "{typst_code}");
+        assert!(typst_code.contains("\\frac{1"));
         assert!(typst_code.contains("this remains text"));
     }
 }
