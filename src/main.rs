@@ -34,6 +34,10 @@ struct Args {
     #[arg(long, value_name = "POINTS", default_value = "13")]
     font_size: f64,
 
+    /// Add a table of contents at the beginning of the document
+    #[arg(long)]
+    toc: bool,
+
     /// Additional font file or directory (repeatable)
     #[arg(short = 'f', long = "font-path", value_name = "PATH")]
     font_paths: Vec<PathBuf>,
@@ -124,6 +128,7 @@ fn main() {
         footer: None,
         image_handling: Some(mdpdf::config::ImageHandlingConfig::default()),
         custom_preamble: None,
+        toc: args.toc,
     };
 
     // Convert markdown to PDF
