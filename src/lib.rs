@@ -38,6 +38,22 @@ use crate::utils::images::ImageProcessor;
 const MAX_LIST_NESTING_LEVEL: usize = 15;
 const MAX_BLOCKQUOTE_NESTING_LEVEL: usize = 8;
 
+struct HeadingLabels {
+    in_order: Vec<Option<String>>,
+    targets: HashSet<String>,
+}
+
+fn markdown_options() -> Options {
+    Options::ENABLE_TABLES
+        | Options::ENABLE_STRIKETHROUGH
+        | Options::ENABLE_DEFINITION_LIST
+        | Options::ENABLE_MATH
+        | Options::ENABLE_SUPERSCRIPT
+        | Options::ENABLE_GFM
+        | Options::ENABLE_TASKLISTS
+        | Options::ENABLE_FOOTNOTES
+}
+
 fn github_alert_open(kind: BlockQuoteKind) -> String {
     let (title, color, icon) = match kind {
         BlockQuoteKind::Note => ("Note", "#0969da", "circle"),
@@ -96,15 +112,19 @@ pub struct MarkdownToPdfResult {
 type MarkdownToPdfInput = napi::bindgen_prelude::Either<String, MarkdownToPdfOptions>;
 
 #[cfg(all(not(feature = "fuzz"), feature = "node"))]
-fn config_from_options(options: Option<MarkdownToPdfInput>) -> Result<MdpdfConfig, NapiError> {
+fn config_from_options(
+    options: Option<MarkdownToPdfInput>,
+    legacy_font_paths: Option<Vec<String>>,
+    legacy_toc: Option<bool>,
+) -> Result<MdpdfConfig, NapiError> {
     let options = match options {
         Some(napi::bindgen_prelude::Either::A(typst_config)) => MarkdownToPdfOptions {
             typst_config: Some(typst_config),
             page_size: None,
             margin: None,
             font_family: None,
-            font_paths: None,
-            toc: None,
+            font_paths: legacy_font_paths,
+            toc: legacy_toc,
             font_size: None,
         },
         Some(napi::bindgen_prelude::Either::B(options)) => options,
@@ -113,8 +133,8 @@ fn config_from_options(options: Option<MarkdownToPdfInput>) -> Result<MdpdfConfi
             page_size: None,
             margin: None,
             font_family: None,
-            font_paths: None,
-            toc: None,
+            font_paths: legacy_font_paths,
+            toc: legacy_toc,
             font_size: None,
         },
     };
@@ -153,8 +173,10 @@ fn config_from_options(options: Option<MarkdownToPdfInput>) -> Result<MdpdfConfi
 pub async fn markdown_to_pdf(
     markdown: String,
     options: Option<MarkdownToPdfInput>,
+    legacy_font_paths: Option<Vec<String>>,
+    legacy_toc: Option<bool>,
 ) -> Result<napi::bindgen_prelude::Buffer, NapiError> {
-    let config = config_from_options(options)?;
+    let config = config_from_options(options, legacy_font_paths, legacy_toc)?;
     let (typst_code, image_files) = markdown_to_typst_async(&markdown, &config)
         .await
         .map_err(|e| NapiError::from_reason(e))?;
@@ -169,7 +191,7 @@ pub async fn markdown_to_pdf_with_stats(
     markdown: String,
     options: Option<MarkdownToPdfInput>,
 ) -> Result<MarkdownToPdfResult, NapiError> {
-    let config = config_from_options(options)?;
+    let config = config_from_options(options, None, None)?;
     let character_count = markdown.chars().count() as u32;
     let line_count = markdown.lines().count() as u32;
 
@@ -215,8 +237,10 @@ pub fn evict(max_age: u32) {
 pub async fn markdown_to_typst_code(
     markdown: String,
     options: Option<MarkdownToPdfInput>,
+    legacy_font_paths: Option<Vec<String>>,
+    legacy_toc: Option<bool>,
 ) -> Result<String, NapiError> {
-    let config = config_from_options(options)?;
+    let config = config_from_options(options, legacy_font_paths, legacy_toc)?;
     // TODO: disable image URL rewriting
     let (typst_code, _image_files) = markdown_to_typst_async(&markdown, &config)
         .await
@@ -233,9 +257,11 @@ async fn markdown_to_typst_async(
     let mut typst_code = String::new();
     let footnote_definitions = collect_footnote_definitions(markdown);
     let mut emitted_footnotes = HashSet::new();
+    let mut footnote_labels = HashMap::new();
     let mut in_footnote_definition = false;
 
     let heading_labels = collect_heading_labels(markdown);
+    let mut heading_label_index = 0;
     if config.toc {
         typst_code.push_str("#outline(indent: auto)\n\n");
     }
@@ -290,17 +316,7 @@ async fn markdown_to_typst_async(
     // Initialize HTML tag tracker for inline HTML processing
     let mut html_tag_tracker = HtmlTagTracker::new();
 
-    let parser = Parser::new_ext(
-        markdown,
-        Options::ENABLE_TABLES
-            | Options::ENABLE_STRIKETHROUGH
-            | Options::ENABLE_DEFINITION_LIST
-            | Options::ENABLE_MATH
-            | Options::ENABLE_SUPERSCRIPT // TODO not working - use <sup></sup> and <sub></sub> instead
-            | Options::ENABLE_GFM
-            | Options::ENABLE_TASKLISTS
-            | Options::ENABLE_FOOTNOTES,
-    );
+    let parser = Parser::new_ext(markdown, markdown_options());
 
     for event in parser {
         if matches!(&event, Event::Start(Tag::FootnoteDefinition(_))) {
@@ -349,11 +365,15 @@ async fn markdown_to_typst_async(
                 if !closed_tags.is_empty() {
                     current_output.push_str(&closed_tags);
                 }
-                let kebab_case = to_kebab_case(&current_heading_text);
-                if kebab_case.is_empty() {
-                    typst_code.push_str(&format!("{current_heading_text}\n"));
+                let label = heading_labels
+                    .in_order
+                    .get(heading_label_index)
+                    .and_then(|label| label.as_deref());
+                heading_label_index += 1;
+                if let Some(label) = label {
+                    typst_code.push_str(&format!("{current_heading_text} <{label}>\n"));
                 } else {
-                    typst_code.push_str(&format!("{current_heading_text} <{kebab_case}>\n"));
+                    typst_code.push_str(&format!("{current_heading_text}\n"));
                 }
                 current_heading_text.clear();
             }
@@ -445,7 +465,7 @@ async fn markdown_to_typst_async(
                 in_link = false;
                 let result = if let Some(fragment) = current_link_url.strip_prefix('#') {
                     let label = to_kebab_case(fragment);
-                    if heading_labels.contains(&label) {
+                    if heading_labels.targets.contains(&label) {
                         format!("#link(label(\"{label}\"))[{current_link_text}]")
                     } else {
                         format!(
@@ -776,10 +796,15 @@ async fn markdown_to_typst_async(
             Event::FootnoteReference(fnref) => {
                 let id = fnref.to_string();
                 if let Some(content) = footnote_definitions.get(&id) {
+                    let next_footnote_index = footnote_labels.len();
+                    let label = footnote_labels
+                        .entry(id.clone())
+                        .or_insert_with(|| format!("footnote-{next_footnote_index}"))
+                        .clone();
                     if emitted_footnotes.insert(id.clone()) {
-                        current_output.push_str(&format!("#footnote[{content}] <footnote-{id}>"));
+                        current_output.push_str(&format!("#footnote[{content}] <{label}>"));
                     } else {
-                        current_output.push_str(&format!("#ref(<footnote-{id}>)"));
+                        current_output.push_str(&format!("#ref(<{label}>)"));
                     }
                 } else {
                     current_output.push_str(&format!("[^{id}]"));
@@ -923,20 +948,42 @@ async fn markdown_to_typst_async(
     Ok((typst_code, image_files))
 }
 
-fn collect_heading_labels(markdown: &str) -> HashSet<String> {
-    let mut labels = HashSet::new();
+fn collect_heading_labels(markdown: &str) -> HeadingLabels {
+    let mut in_order = Vec::new();
+    let mut targets = HashSet::new();
+    let mut occurrences = HashMap::<String, usize>::new();
     let mut in_heading = false;
+    let mut in_footnote_definition = false;
     let mut heading_text = String::new();
 
-    for event in Parser::new_ext(markdown, Options::all()) {
+    for event in Parser::new_ext(markdown, markdown_options()) {
         match event {
+            Event::Start(Tag::FootnoteDefinition(_)) => in_footnote_definition = true,
+            Event::End(TagEnd::FootnoteDefinition) => in_footnote_definition = false,
             Event::Start(Tag::Heading { .. }) => {
+                if in_footnote_definition {
+                    continue;
+                }
                 in_heading = true;
                 heading_text.clear();
             }
             Event::End(TagEnd::Heading(_)) => {
                 if in_heading {
-                    labels.insert(to_kebab_case(&heading_text));
+                    let base = to_kebab_case(&heading_text);
+                    let label = if base.is_empty() {
+                        None
+                    } else {
+                        let occurrence = occurrences.entry(base.clone()).or_insert(0);
+                        let label = if *occurrence == 0 {
+                            base
+                        } else {
+                            format!("{base}-{occurrence}")
+                        };
+                        *occurrence += 1;
+                        targets.insert(label.clone());
+                        Some(label)
+                    };
+                    in_order.push(label);
                     in_heading = false;
                 }
             }
@@ -946,7 +993,7 @@ fn collect_heading_labels(markdown: &str) -> HashSet<String> {
         }
     }
 
-    labels
+    HeadingLabels { in_order, targets }
 }
 
 pub fn to_kebab_case(text: &str) -> String {
@@ -974,7 +1021,7 @@ fn collect_footnote_definitions(markdown: &str) -> HashMap<String, String> {
     let mut current_id = None;
     let mut current_content = String::new();
 
-    for event in Parser::new_ext(markdown, Options::ENABLE_FOOTNOTES) {
+    for event in Parser::new_ext(markdown, markdown_options()) {
         match event {
             Event::Start(Tag::FootnoteDefinition(id)) => {
                 current_id = Some(id.to_string());
@@ -1009,6 +1056,15 @@ fn collect_footnote_definitions(markdown: &str) -> HashMap<String, String> {
             }
             Event::SoftBreak | Event::HardBreak if current_id.is_some() => {
                 current_content.push('\n')
+            }
+            Event::InlineMath(math) if current_id.is_some() => {
+                current_content.push_str(&render_tex_math(&math, false))
+            }
+            Event::DisplayMath(math) if current_id.is_some() => {
+                current_content.push_str(&render_tex_math(&math, true))
+            }
+            Event::TaskListMarker(marker) if current_id.is_some() => {
+                current_content.push_str(if marker { "️☑ ︎" } else { "⬜ " })
             }
             Event::End(TagEnd::Paragraph) if current_id.is_some() => current_content.push('\n'),
             _ => {}
@@ -2676,8 +2732,8 @@ xyz 456
     #[cfg(feature = "node")]
     #[test]
     fn maps_node_options_to_document_configuration() {
-        let config = config_from_options(Some(napi::bindgen_prelude::Either::B(
-            MarkdownToPdfOptions {
+        let config = config_from_options(
+            Some(napi::bindgen_prelude::Either::B(MarkdownToPdfOptions {
                 typst_config: Some("#set text(fill: red)".to_string()),
                 page_size: Some("a4".to_string()),
                 margin: Some("25.4mm".to_string()),
@@ -2685,8 +2741,10 @@ xyz 456
                 font_paths: Some(vec!["./test-fonts".to_string()]),
                 toc: Some(true),
                 font_size: Some(11.0),
-            },
-        )))
+            })),
+            None,
+            None,
+        )
         .unwrap();
 
         assert!(matches!(
@@ -2706,14 +2764,35 @@ xyz 456
             Some("#set text(fill: red)")
         );
 
-        let legacy = config_from_options(Some(napi::bindgen_prelude::Either::A(
-            "#set text(size: 10pt)".to_string(),
-        )))
+        let legacy = config_from_options(
+            Some(napi::bindgen_prelude::Either::A(
+                "#set text(size: 10pt)".to_string(),
+            )),
+            Some(vec!["./legacy-fonts".to_string()]),
+            Some(true),
+        )
         .unwrap();
         assert_eq!(
             legacy.custom_preamble.as_deref(),
             Some("#set text(size: 10pt)")
         );
+        assert_eq!(
+            legacy.font_paths,
+            vec![std::path::PathBuf::from("./legacy-fonts")]
+        );
+        assert!(legacy.toc);
+
+        let legacy_without_preamble = config_from_options(
+            None,
+            Some(vec!["./legacy-fonts-without-preamble".to_string()]),
+            Some(true),
+        )
+        .unwrap();
+        assert_eq!(
+            legacy_without_preamble.font_paths,
+            vec![std::path::PathBuf::from("./legacy-fonts-without-preamble")]
+        );
+        assert!(legacy_without_preamble.toc);
     }
 
     #[test]
@@ -2724,11 +2803,46 @@ xyz 456
             run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
 
         assert_eq!(typst_code.matches("#footnote[").count(), 1);
-        assert!(typst_code.contains("#ref(<footnote-source>)"));
+        assert!(typst_code.contains("#ref(<footnote-0>)"));
         assert!(
             typst_code.contains("Shared #strong[note] with #link(\"https://example.com\")[a link]"),
             "{typst_code}"
         );
+
+        let world = crate::typst::MdpdfWorld::new(config, typst_code, image_files);
+        assert!(world.compile_to_pdf().is_ok());
+    }
+
+    #[test]
+    fn supports_footnote_labels_with_spaces_and_extended_markdown() {
+        let markdown = "Math[^note with spaces]. Again[^note with spaces].\n\n[^note with spaces]: **Bold**, ~~deleted~~, and $x^2$.";
+        let config = MdpdfConfig::default();
+        let (typst_code, image_files) =
+            run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
+
+        assert!(typst_code.contains("<footnote-0>"), "{typst_code}");
+        assert!(typst_code.contains("#ref(<footnote-0>)"), "{typst_code}");
+        assert!(typst_code.contains("#strike[deleted]"), "{typst_code}");
+        assert!(typst_code.contains("$x^2$"), "{typst_code}");
+
+        let world = crate::typst::MdpdfWorld::new(config, typst_code, image_files);
+        assert!(world.compile_to_pdf().is_ok());
+    }
+
+    #[test]
+    fn resolves_formatted_and_duplicate_heading_links() {
+        let markdown = "# **Hello**\n\n# Hello\n\n[first](#hello) [second](#hello-1)";
+        let config = MdpdfConfig::default();
+        let (typst_code, image_files) =
+            run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
+
+        assert!(
+            typst_code.contains("#strong[Hello] <hello>"),
+            "{typst_code}"
+        );
+        assert!(typst_code.contains("Hello <hello-1>"), "{typst_code}");
+        assert!(typst_code.contains("#link(label(\"hello\"))[first]"));
+        assert!(typst_code.contains("#link(label(\"hello-1\"))[second]"));
 
         let world = crate::typst::MdpdfWorld::new(config, typst_code, image_files);
         assert!(world.compile_to_pdf().is_ok());

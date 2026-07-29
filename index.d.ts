@@ -40,6 +40,13 @@ export declare function markdownToPdf(
   markdown: string,
   options?: MarkdownToPdfOptions | string | undefined | null,
 ): Promise<Buffer>;
+/** @deprecated Pass a MarkdownToPdfOptions object instead. */
+export declare function markdownToPdf(
+  markdown: string,
+  typstConfig?: string | undefined | null,
+  fontPaths?: Array<string> | undefined | null,
+  toc?: boolean | undefined | null,
+): Promise<Buffer>;
 
 export declare function markdownToPdfWithStats(
   markdown: string,
@@ -49,4 +56,11 @@ export declare function markdownToPdfWithStats(
 export declare function markdownToTypstCode(
   markdown: string,
   options?: MarkdownToPdfOptions | string | undefined | null,
+): Promise<string>;
+/** @deprecated Pass a MarkdownToPdfOptions object instead. */
+export declare function markdownToTypstCode(
+  markdown: string,
+  typstConfig?: string | undefined | null,
+  fontPaths?: Array<string> | undefined | null,
+  toc?: boolean | undefined | null,
 ): Promise<string>;
