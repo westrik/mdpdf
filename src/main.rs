@@ -33,6 +33,10 @@ struct Args {
     /// Font size in points
     #[arg(long, value_name = "POINTS", default_value = "13")]
     font_size: f64,
+
+    /// Additional font file or directory (repeatable)
+    #[arg(short = 'f', long = "font-path", value_name = "PATH")]
+    font_paths: Vec<PathBuf>,
 }
 
 fn parse_custom_page_size(value: &str) -> Result<mdpdf::config::PageSize, String> {
@@ -180,6 +184,7 @@ fn main() {
             right: margin_size,
         }),
         font_family: Some("Libertinus Serif".to_string()),
+        font_paths: args.font_paths,
         font_size: Some(args.font_size),
         header: None,
         footer: None,
