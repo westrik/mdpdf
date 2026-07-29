@@ -43,52 +43,6 @@ struct Args {
     font_paths: Vec<PathBuf>,
 }
 
-fn parse_custom_page_size(value: &str) -> Result<mdpdf::config::PageSize, String> {
-    // Parse custom page sizes like "8.5inx11in" or "210mmx297mm"
-    let parts: Vec<&str> = value.split('x').collect();
-    if parts.len() != 2 {
-        return Err(
-            "Custom page size must be in format 'WIDTHxHEIGHT' (e.g., '8.5inx11in')".to_string(),
-        );
-    }
-
-    let width = parse_dimension(parts[0])?;
-    let height = parse_dimension(parts[1])?;
-
-    Ok(mdpdf::config::PageSize::Custom { width, height })
-}
-
-fn parse_dimension(s: &str) -> Result<f64, String> {
-    let s = s.trim();
-
-    if s.ends_with("in") {
-        let value = s[..s.len() - 2]
-            .parse::<f64>()
-            .map_err(|_| format!("Invalid dimension: {}", s))?;
-        Ok(value)
-    } else if s.ends_with("mm") {
-        let value = s[..s.len() - 2]
-            .parse::<f64>()
-            .map_err(|_| format!("Invalid dimension: {}", s))?;
-        // Convert mm to inches (1 inch = 25.4 mm)
-        Ok(value / 25.4)
-    } else if s.ends_with("cm") {
-        let value = s[..s.len() - 2]
-            .parse::<f64>()
-            .map_err(|_| format!("Invalid dimension: {}", s))?;
-        // Convert cm to inches (1 inch = 2.54 cm)
-        Ok(value / 2.54)
-    } else {
-        // Assume inches if no unit specified
-        s.parse::<f64>()
-            .map_err(|_| format!("Invalid dimension: {}", s))
-    }
-}
-
-fn parse_margin(s: &str) -> Result<f64, String> {
-    parse_dimension(s)
-}
-
 fn read_input(input: Option<PathBuf>) -> Result<String, String> {
     match input {
         None => {
@@ -146,32 +100,17 @@ fn main() {
     };
 
     // Parse page size
-    let page_size = match args.page_size.to_lowercase().as_str() {
-        "letter" => mdpdf::config::PageSize::Letter,
-        "legal" => mdpdf::config::PageSize::Legal,
-        "a4" => mdpdf::config::PageSize::A4,
-        custom if custom.contains('x') => {
-            // Parse custom page size
-            match parse_custom_page_size(custom) {
-                Ok(size) => size,
-                Err(e) => {
-                    eprintln!("Error: {}", e);
-                    process::exit(1);
-                }
-            }
-        }
-        _ => {
-            eprintln!(
-                "Error: Invalid page size '{}'. Use 'letter', 'legal', 'a4', or custom format like '8.5inx11in'",
-                args.page_size
-            );
+    let page_size = match mdpdf::config::PageSize::parse(&args.page_size) {
+        Ok(size) => size,
+        Err(e) => {
+            eprintln!("Error: {e}");
             process::exit(1);
         }
     };
 
     // Parse margin
-    let margin_size = match parse_margin(&args.margin) {
-        Ok(size) => size,
+    let margins = match mdpdf::config::Margins::parse(&args.margin) {
+        Ok(margins) => margins,
         Err(e) => {
             eprintln!("Error: {}", e);
             process::exit(1);
@@ -181,12 +120,7 @@ fn main() {
     // Create configuration
     let config = MdpdfConfig {
         page_size: Some(page_size),
-        margins: Some(mdpdf::config::Margins {
-            top: margin_size,
-            bottom: margin_size,
-            left: margin_size,
-            right: margin_size,
-        }),
+        margins: Some(margins),
         font_family: Some("Libertinus Serif".to_string()),
         font_paths: args.font_paths,
         font_size: Some(args.font_size),

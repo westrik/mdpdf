@@ -14,16 +14,39 @@
  */
 export declare function evict(maxAge: number): void;
 
+export interface MarkdownToPdfOptions {
+  typstConfig?: string | null;
+  pageSize?: string | null;
+  margin?: string | null;
+  fontFamily?: string | null;
+  fontPaths?: Array<string> | null;
+  toc?: boolean | null;
+  fontSize?: number | null;
+}
+
+export interface ConversionStats {
+  characterCount: number;
+  lineCount: number;
+  conversionTimeMs: number;
+  renderingTimeMs: number;
+}
+
+export interface MarkdownToPdfResult {
+  pdf: Buffer;
+  stats: ConversionStats;
+}
+
 export declare function markdownToPdf(
   markdown: string,
-  typstConfig?: string | undefined | null,
-  fontPaths?: Array<string> | undefined | null,
-  toc?: boolean | undefined | null,
+  options?: MarkdownToPdfOptions | string | undefined | null,
 ): Promise<Buffer>;
+
+export declare function markdownToPdfWithStats(
+  markdown: string,
+  options?: MarkdownToPdfOptions | string | undefined | null,
+): Promise<MarkdownToPdfResult>;
 
 export declare function markdownToTypstCode(
   markdown: string,
-  typstConfig?: string | undefined | null,
-  fontPaths?: Array<string> | undefined | null,
-  toc?: boolean | undefined | null,
+  options?: MarkdownToPdfOptions | string | undefined | null,
 ): Promise<string>;
