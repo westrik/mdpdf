@@ -842,8 +842,12 @@ fn collect_footnote_definitions(markdown: &str) -> HashMap<String, String> {
             Event::Code(code) if current_id.is_some() => {
                 current_content.push_str(&format!("``` {} ```", filter_control_characters(&code)))
             }
-            Event::Text(text) if current_id.is_some() => current_content.push_str(&escape_text(&text)),
-            Event::SoftBreak | Event::HardBreak if current_id.is_some() => current_content.push('\n'),
+            Event::Text(text) if current_id.is_some() => {
+                current_content.push_str(&escape_text(&text))
+            }
+            Event::SoftBreak | Event::HardBreak if current_id.is_some() => {
+                current_content.push('\n')
+            }
             Event::End(TagEnd::Paragraph) if current_id.is_some() => current_content.push('\n'),
             _ => {}
         }
