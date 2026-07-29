@@ -30,6 +30,10 @@ fix-lint:
 release:
 	@[ "$(V)" ] || { echo "Usage: make release V=0.1.7"; exit 1; }
 	node -e "var p=require('./package.json');p.version='$(V)';require('fs').writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
-	sed -i '' 's/^version = ".*"/version = "$(V)"/' Cargo.toml
+	awk -v version="$(V)" '\
+		/^\[package\]$$/ { in_package = 1 } \
+		in_package && !updated && /^version = "/ { sub(/"[^"]*"$$/, "\"" version "\""); updated = 1 } \
+		{ print } \
+		END { if (!updated) exit 1 }' Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
 	@echo "Bumped to $(V). Edit CHANGELOG.md, then:"
 	@echo "  git add package.json Cargo.toml CHANGELOG.md && git commit -m 'v$(V)' && git push"

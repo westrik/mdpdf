@@ -7,17 +7,21 @@ const declarationBackup = fs.existsSync(declarationPath)
   ? fs.readFileSync(declarationPath)
   : null;
 
+const corepackCommand = "corepack";
 const result = spawnSync(
-  "corepack",
+  corepackCommand,
   ["yarn", "napi", "build", "--platform", ...process.argv.slice(2)],
-  { stdio: "inherit" },
+  // Windows batch shims such as corepack.cmd must be invoked through a shell.
+  { stdio: "inherit", shell: process.platform === "win32" },
 );
 
 const declarationIsValid =
-  fs.existsSync(declarationPath) &&
-  fs.statSync(declarationPath).size > 0;
+  fs.existsSync(declarationPath) && fs.statSync(declarationPath).size > 0;
 
 if (result.status !== 0) {
+  if (result.error) {
+    console.error(`Failed to run ${corepackCommand}: ${result.error.message}`);
+  }
   if (declarationBackup !== null) {
     fs.writeFileSync(declarationPath, declarationBackup);
   }
@@ -31,5 +35,7 @@ if (!declarationIsValid) {
   }
 
   fs.writeFileSync(declarationPath, declarationBackup);
-  console.warn("Restored index.d.ts after N-API emitted an empty declaration file.");
+  console.warn(
+    "Restored index.d.ts after N-API emitted an empty declaration file.",
+  );
 }
