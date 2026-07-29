@@ -6,25 +6,25 @@ cli:
 
 .PHONY: node
 node:
-	yarn build
+	corepack yarn build
 
 
 .PHONY: test
 test:
 	cargo test
-	yarn test
+	CI=1 corepack yarn test
 
 .PHONY: lint
 lint:
 	cargo fmt --check
 	cargo clippy
-	yarn lint
+	corepack yarn lint
 
 .PHONY: fix-lint
 fix-lint:
 	cargo fmt
 	cargo clippy --fix
-	yarn lint:fix
+	corepack yarn lint:fix
 
 .PHONY: release
 release:
@@ -33,4 +33,3 @@ release:
 	sed -i '' 's/^version = ".*"/version = "$(V)"/' Cargo.toml
 	@echo "Bumped to $(V). Edit CHANGELOG.md, then:"
 	@echo "  git add package.json Cargo.toml CHANGELOG.md && git commit -m 'v$(V)' && git push"
-

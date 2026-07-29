@@ -54,6 +54,11 @@ cargo test
 ### Node.js
 
 ```sh
-npm run build
-npm run test
+corepack yarn install --immutable
+corepack yarn build
+CI=1 corepack yarn test
 ```
+
+This project requires the Yarn version pinned in `package.json`. Use
+`corepack yarn` rather than a globally installed `yarn`; this avoids falling
+back to Yarn 1 and ensures failed N-API builds cannot leave `index.d.ts` empty.

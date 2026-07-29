@@ -48,8 +48,8 @@
     ]
   },
   "scripts": {
-    "build": "yarn napi build --platform --release --features node",
-    "build:debug": "yarn napi build --platform",
+    "build": "node scripts/build.mjs --release --features node",
+    "build:debug": "node scripts/build.mjs",
     "prepublishOnly": "yarn napi prepublish -t npm",
     "artifacts": "yarn napi artifacts",
     "test": "node tests/test.mjs",
