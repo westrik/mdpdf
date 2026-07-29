@@ -20,6 +20,8 @@ use pulldown_cmark::{
     Alignment, BlockQuoteKind, CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
 };
 use std::collections::HashMap;
+#[cfg(all(not(feature = "fuzz"), feature = "node"))]
+use std::time::Instant;
 use tokio::runtime::Runtime;
 
 pub mod config;
@@ -36,21 +38,120 @@ const MAX_LIST_NESTING_LEVEL: usize = 15;
 const MAX_BLOCKQUOTE_NESTING_LEVEL: usize = 8;
 
 #[cfg(all(not(feature = "fuzz"), feature = "node"))]
+#[napi(object)]
+pub struct MarkdownToPdfOptions {
+    pub typst_config: Option<String>,
+    pub page_size: Option<String>,
+    pub margin: Option<String>,
+    pub font_family: Option<String>,
+    pub font_size: Option<f64>,
+}
+
+#[cfg(all(not(feature = "fuzz"), feature = "node"))]
+#[napi(object)]
+pub struct ConversionStats {
+    pub character_count: u32,
+    pub line_count: u32,
+    pub conversion_time_ms: f64,
+    pub rendering_time_ms: f64,
+}
+
+#[cfg(all(not(feature = "fuzz"), feature = "node"))]
+#[napi(object)]
+pub struct MarkdownToPdfResult {
+    pub pdf: napi::bindgen_prelude::Buffer,
+    pub stats: ConversionStats,
+}
+
+#[cfg(all(not(feature = "fuzz"), feature = "node"))]
+type MarkdownToPdfInput = napi::bindgen_prelude::Either<String, MarkdownToPdfOptions>;
+
+#[cfg(all(not(feature = "fuzz"), feature = "node"))]
+fn config_from_options(options: Option<MarkdownToPdfInput>) -> Result<MdpdfConfig, NapiError> {
+    let options = match options {
+        Some(napi::bindgen_prelude::Either::A(typst_config)) => MarkdownToPdfOptions {
+            typst_config: Some(typst_config),
+            page_size: None,
+            margin: None,
+            font_family: None,
+            font_size: None,
+        },
+        Some(napi::bindgen_prelude::Either::B(options)) => options,
+        None => MarkdownToPdfOptions {
+            typst_config: None,
+            page_size: None,
+            margin: None,
+            font_family: None,
+            font_size: None,
+        },
+    };
+    let mut config = MdpdfConfig {
+        custom_preamble: options.typst_config,
+        ..MdpdfConfig::default()
+    };
+    if let Some(font_family) = options.font_family {
+        config.font_family = Some(font_family);
+    }
+    if let Some(font_size) = options.font_size {
+        config.font_size = Some(font_size);
+    }
+
+    if let Some(page_size) = options.page_size {
+        config.page_size =
+            Some(crate::config::PageSize::parse(&page_size).map_err(NapiError::from_reason)?);
+    }
+    if let Some(margin) = options.margin {
+        config.margins =
+            Some(crate::config::Margins::parse(&margin).map_err(NapiError::from_reason)?);
+    }
+
+    Ok(config)
+}
+
+#[cfg(all(not(feature = "fuzz"), feature = "node"))]
 #[napi]
 pub async fn markdown_to_pdf(
     markdown: String,
-    typst_config: Option<String>,
+    options: Option<MarkdownToPdfInput>,
 ) -> Result<napi::bindgen_prelude::Buffer, NapiError> {
-    let config = MdpdfConfig {
-        custom_preamble: typst_config,
-        ..MdpdfConfig::default()
-    };
+    let config = config_from_options(options)?;
     let (typst_code, image_files) = markdown_to_typst_async(&markdown, &config)
         .await
         .map_err(|e| NapiError::from_reason(e))?;
     let pdf_bytes =
         typst_to_pdf(&typst_code, &config, image_files).map_err(|e| NapiError::from_reason(e))?;
     Ok(napi::bindgen_prelude::Buffer::from(pdf_bytes))
+}
+
+#[cfg(all(not(feature = "fuzz"), feature = "node"))]
+#[napi]
+pub async fn markdown_to_pdf_with_stats(
+    markdown: String,
+    options: Option<MarkdownToPdfInput>,
+) -> Result<MarkdownToPdfResult, NapiError> {
+    let config = config_from_options(options)?;
+    let character_count = markdown.chars().count() as u32;
+    let line_count = markdown.lines().count() as u32;
+
+    let conversion_started = Instant::now();
+    let (typst_code, image_files) = markdown_to_typst_async(&markdown, &config)
+        .await
+        .map_err(NapiError::from_reason)?;
+    let conversion_time_ms = conversion_started.elapsed().as_secs_f64() * 1000.0;
+
+    let rendering_started = Instant::now();
+    let pdf = typst_to_pdf(&typst_code, &config, image_files).map_err(NapiError::from_reason)?;
+    let rendering_time_ms = rendering_started.elapsed().as_secs_f64() * 1000.0;
+
+    Ok(MarkdownToPdfResult {
+        pdf: napi::bindgen_prelude::Buffer::from(pdf),
+        stats: ConversionStats {
+            character_count,
+            line_count,
+            conversion_time_ms,
+            rendering_time_ms,
+        },
+    })
 }
 
 /// Evict the Typst memoization cache.
@@ -73,12 +174,9 @@ pub fn evict(max_age: u32) {
 #[napi]
 pub async fn markdown_to_typst_code(
     markdown: String,
-    typst_config: Option<String>,
+    options: Option<MarkdownToPdfInput>,
 ) -> Result<String, NapiError> {
-    let config = MdpdfConfig {
-        custom_preamble: typst_config,
-        ..MdpdfConfig::default()
-    };
+    let config = config_from_options(options)?;
     // TODO: disable image URL rewriting
     let (typst_code, _image_files) = markdown_to_typst_async(&markdown, &config)
         .await
@@ -2418,6 +2516,42 @@ xyz 456
 
 #hrule
 "#
+        );
+    }
+
+    #[cfg(feature = "node")]
+    #[test]
+    fn maps_node_options_to_document_configuration() {
+        let config = config_from_options(Some(napi::bindgen_prelude::Either::B(
+            MarkdownToPdfOptions {
+                typst_config: Some("#set text(fill: red)".to_string()),
+                page_size: Some("a4".to_string()),
+                margin: Some("25.4mm".to_string()),
+                font_family: Some("DejaVu Sans".to_string()),
+                font_size: Some(11.0),
+            },
+        )))
+        .unwrap();
+
+        assert!(matches!(
+            config.page_size,
+            Some(crate::config::PageSize::A4)
+        ));
+        assert_eq!(config.margins.unwrap().top, 1.0);
+        assert_eq!(config.font_family.as_deref(), Some("DejaVu Sans"));
+        assert_eq!(config.font_size, Some(11.0));
+        assert_eq!(
+            config.custom_preamble.as_deref(),
+            Some("#set text(fill: red)")
+        );
+
+        let legacy = config_from_options(Some(napi::bindgen_prelude::Either::A(
+            "#set text(size: 10pt)".to_string(),
+        )))
+        .unwrap();
+        assert_eq!(
+            legacy.custom_preamble.as_deref(),
+            Some("#set text(size: 10pt)")
         );
     }
 }
