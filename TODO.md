@@ -1,4 +1,5 @@
-- [ ] section links
+- [x] section links
+- [x] table of contents support
 - [ ] latex math to typst math syntax (for `${}$` / `$${}$$` / \`\`\`math) using https://crates.io/crates/tex2typst-rs (?)
 
 - [ ] aarch64 musl build
