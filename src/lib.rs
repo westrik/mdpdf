@@ -810,21 +810,41 @@ pub fn escape_text(text: &str) -> String {
 fn collect_footnote_definitions(markdown: &str) -> HashMap<String, String> {
     let mut definitions = HashMap::new();
     let mut current_id = None;
-    let mut current_text = String::new();
+    let mut current_content = String::new();
 
     for event in Parser::new_ext(markdown, Options::ENABLE_FOOTNOTES) {
         match event {
             Event::Start(Tag::FootnoteDefinition(id)) => {
                 current_id = Some(id.to_string());
-                current_text.clear();
+                current_content.clear();
             }
             Event::End(TagEnd::FootnoteDefinition) => {
                 if let Some(id) = current_id.take() {
-                    definitions.insert(id, escape_text(&current_text));
+                    definitions.insert(id, current_content.trim_end().to_string());
                 }
             }
-            Event::Text(text) if current_id.is_some() => current_text.push_str(&text),
-            Event::SoftBreak | Event::HardBreak if current_id.is_some() => current_text.push('\n'),
+            Event::Start(Tag::Emphasis) if current_id.is_some() => {
+                current_content.push_str("#emph[")
+            }
+            Event::End(TagEnd::Emphasis) if current_id.is_some() => current_content.push(']'),
+            Event::Start(Tag::Strong) if current_id.is_some() => {
+                current_content.push_str("#strong[")
+            }
+            Event::End(TagEnd::Strong) if current_id.is_some() => current_content.push(']'),
+            Event::Start(Tag::Strikethrough) if current_id.is_some() => {
+                current_content.push_str("#strike[")
+            }
+            Event::End(TagEnd::Strikethrough) if current_id.is_some() => current_content.push(']'),
+            Event::Start(Tag::Link { dest_url, .. }) if current_id.is_some() => {
+                current_content.push_str(&format!("#link({:?})[", dest_url.as_ref()))
+            }
+            Event::End(TagEnd::Link) if current_id.is_some() => current_content.push(']'),
+            Event::Code(code) if current_id.is_some() => {
+                current_content.push_str(&format!("``` {} ```", filter_control_characters(&code)))
+            }
+            Event::Text(text) if current_id.is_some() => current_content.push_str(&escape_text(&text)),
+            Event::SoftBreak | Event::HardBreak if current_id.is_some() => current_content.push('\n'),
+            Event::End(TagEnd::Paragraph) if current_id.is_some() => current_content.push('\n'),
             _ => {}
         }
     }
@@ -2464,13 +2484,16 @@ xyz 456
 
     #[test]
     fn renders_and_reuses_markdown_footnotes() {
-        let markdown = "First[^source]. Second[^source].\n\n[^source]: Shared note.";
+        let markdown = "First[^source]. Second[^source].\n\n[^source]: Shared **note** with [a link](https://example.com).";
         let config = MdpdfConfig::default();
         let (typst_code, _) = run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
 
         assert_eq!(typst_code.matches("#footnote[").count(), 1);
         assert!(typst_code.contains("#ref(<footnote-source>)"));
-        assert!(!typst_code.contains("Shared note.\n"));
+        assert!(
+            typst_code.contains("Shared #strong[note] with #link(\"https://example.com\")[a link]"),
+            "{typst_code}"
+        );
     }
 
     #[test]
