@@ -2486,7 +2486,8 @@ xyz 456
     fn renders_and_reuses_markdown_footnotes() {
         let markdown = "First[^source]. Second[^source].\n\n[^source]: Shared **note** with [a link](https://example.com).";
         let config = MdpdfConfig::default();
-        let (typst_code, _) = run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
+        let (typst_code, image_files) =
+            run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
 
         assert_eq!(typst_code.matches("#footnote[").count(), 1);
         assert!(typst_code.contains("#ref(<footnote-source>)"));
@@ -2494,6 +2495,9 @@ xyz 456
             typst_code.contains("Shared #strong[note] with #link(\"https://example.com\")[a link]"),
             "{typst_code}"
         );
+
+        let world = crate::typst::MdpdfWorld::new(config, typst_code, image_files);
+        assert!(world.compile_to_pdf().is_ok());
     }
 
     #[test]
