@@ -44,6 +44,7 @@ pub struct MarkdownToPdfOptions {
     pub page_size: Option<String>,
     pub margin: Option<String>,
     pub font_family: Option<String>,
+    pub font_paths: Option<Vec<String>>,
     pub font_size: Option<f64>,
 }
 
@@ -74,6 +75,7 @@ fn config_from_options(options: Option<MarkdownToPdfInput>) -> Result<MdpdfConfi
             page_size: None,
             margin: None,
             font_family: None,
+            font_paths: None,
             font_size: None,
         },
         Some(napi::bindgen_prelude::Either::B(options)) => options,
@@ -82,11 +84,18 @@ fn config_from_options(options: Option<MarkdownToPdfInput>) -> Result<MdpdfConfi
             page_size: None,
             margin: None,
             font_family: None,
+            font_paths: None,
             font_size: None,
         },
     };
     let mut config = MdpdfConfig {
         custom_preamble: options.typst_config,
+        font_paths: options
+            .font_paths
+            .unwrap_or_default()
+            .into_iter()
+            .map(Into::into)
+            .collect(),
         ..MdpdfConfig::default()
     };
     if let Some(font_family) = options.font_family {
@@ -2528,6 +2537,7 @@ xyz 456
                 page_size: Some("a4".to_string()),
                 margin: Some("25.4mm".to_string()),
                 font_family: Some("DejaVu Sans".to_string()),
+                font_paths: Some(vec!["./test-fonts".to_string()]),
                 font_size: Some(11.0),
             },
         )))
@@ -2539,6 +2549,10 @@ xyz 456
         ));
         assert_eq!(config.margins.unwrap().top, 1.0);
         assert_eq!(config.font_family.as_deref(), Some("DejaVu Sans"));
+        assert_eq!(
+            config.font_paths,
+            vec![std::path::PathBuf::from("./test-fonts")]
+        );
         assert_eq!(config.font_size, Some(11.0));
         assert_eq!(
             config.custom_preamble.as_deref(),

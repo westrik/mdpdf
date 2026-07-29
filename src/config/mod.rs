@@ -6,6 +6,8 @@ pub struct MdpdfConfig {
     pub page_size: Option<PageSize>,
     pub margins: Option<Margins>,
     pub font_family: Option<String>,
+    /// Additional font files or directories to load before system fonts.
+    pub font_paths: Vec<PathBuf>,
     pub font_size: Option<f64>,
     pub header: Option<String>,
     pub footer: Option<String>,
@@ -21,6 +23,7 @@ impl Default for MdpdfConfig {
             page_size: Some(PageSize::Letter),
             margins: Some(Margins::default()),
             font_family: Some("Libertinus Serif".to_string()),
+            font_paths: Vec::new(),
             font_size: Some(13.0),
             header: None,
             footer: None,

@@ -19,6 +19,7 @@ export interface MarkdownToPdfOptions {
   pageSize?: string | null;
   margin?: string | null;
   fontFamily?: string | null;
+  fontPaths?: Array<string> | null;
   fontSize?: number | null;
 }
 

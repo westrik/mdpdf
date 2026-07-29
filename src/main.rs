@@ -33,6 +33,10 @@ struct Args {
     /// Font size in points
     #[arg(long, value_name = "POINTS", default_value = "13")]
     font_size: f64,
+
+    /// Additional font file or directory (repeatable)
+    #[arg(short = 'f', long = "font-path", value_name = "PATH")]
+    font_paths: Vec<PathBuf>,
 }
 
 fn read_input(input: Option<PathBuf>) -> Result<String, String> {
@@ -114,6 +118,7 @@ fn main() {
         page_size: Some(page_size),
         margins: Some(margins),
         font_family: Some("Libertinus Serif".to_string()),
+        font_paths: args.font_paths,
         font_size: Some(args.font_size),
         header: None,
         footer: None,
