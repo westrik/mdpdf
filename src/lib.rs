@@ -40,10 +40,16 @@ const MAX_BLOCKQUOTE_NESTING_LEVEL: usize = 8;
 pub async fn markdown_to_pdf(
     markdown: String,
     typst_config: Option<String>,
+    font_paths: Option<Vec<String>>,
     toc: Option<bool>,
 ) -> Result<napi::bindgen_prelude::Buffer, NapiError> {
     let config = MdpdfConfig {
         custom_preamble: typst_config,
+        font_paths: font_paths
+            .unwrap_or_default()
+            .into_iter()
+            .map(Into::into)
+            .collect(),
         toc: toc.unwrap_or(false),
         ..MdpdfConfig::default()
     };
@@ -76,10 +82,16 @@ pub fn evict(max_age: u32) {
 pub async fn markdown_to_typst_code(
     markdown: String,
     typst_config: Option<String>,
+    font_paths: Option<Vec<String>>,
     toc: Option<bool>,
 ) -> Result<String, NapiError> {
     let config = MdpdfConfig {
         custom_preamble: typst_config,
+        font_paths: font_paths
+            .unwrap_or_default()
+            .into_iter()
+            .map(Into::into)
+            .collect(),
         toc: toc.unwrap_or(false),
         ..MdpdfConfig::default()
     };

@@ -37,6 +37,10 @@ struct Args {
     /// Add a table of contents at the beginning of the document
     #[arg(long)]
     toc: bool,
+
+    /// Additional font file or directory (repeatable)
+    #[arg(short = 'f', long = "font-path", value_name = "PATH")]
+    font_paths: Vec<PathBuf>,
 }
 
 fn parse_custom_page_size(value: &str) -> Result<mdpdf::config::PageSize, String> {
@@ -184,6 +188,7 @@ fn main() {
             right: margin_size,
         }),
         font_family: Some("Libertinus Serif".to_string()),
+        font_paths: args.font_paths,
         font_size: Some(args.font_size),
         header: None,
         footer: None,
