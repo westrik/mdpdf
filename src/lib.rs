@@ -19,7 +19,7 @@ use napi_derive::napi;
 use pulldown_cmark::{
     Alignment, BlockQuoteKind, CodeBlockKind, Event, HeadingLevel, Options, Parser, Tag, TagEnd,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tex2typst_rs::tex2typst;
 use tokio::runtime::Runtime;
 
@@ -41,9 +41,17 @@ const MAX_BLOCKQUOTE_NESTING_LEVEL: usize = 8;
 pub async fn markdown_to_pdf(
     markdown: String,
     typst_config: Option<String>,
+    font_paths: Option<Vec<String>>,
+    toc: Option<bool>,
 ) -> Result<napi::bindgen_prelude::Buffer, NapiError> {
     let config = MdpdfConfig {
         custom_preamble: typst_config,
+        font_paths: font_paths
+            .unwrap_or_default()
+            .into_iter()
+            .map(Into::into)
+            .collect(),
+        toc: toc.unwrap_or(false),
         ..MdpdfConfig::default()
     };
     let (typst_code, image_files) = markdown_to_typst_async(&markdown, &config)
@@ -75,9 +83,17 @@ pub fn evict(max_age: u32) {
 pub async fn markdown_to_typst_code(
     markdown: String,
     typst_config: Option<String>,
+    font_paths: Option<Vec<String>>,
+    toc: Option<bool>,
 ) -> Result<String, NapiError> {
     let config = MdpdfConfig {
         custom_preamble: typst_config,
+        font_paths: font_paths
+            .unwrap_or_default()
+            .into_iter()
+            .map(Into::into)
+            .collect(),
+        toc: toc.unwrap_or(false),
         ..MdpdfConfig::default()
     };
     // TODO: disable image URL rewriting
@@ -94,6 +110,11 @@ async fn markdown_to_typst_async(
     config: &MdpdfConfig,
 ) -> Result<(String, HashMap<String, Vec<u8>>), String> {
     let mut typst_code = String::new();
+
+    let heading_labels = collect_heading_labels(markdown);
+    if config.toc {
+        typst_code.push_str("#outline(indent: auto)\n\n");
+    }
 
     let mut in_code_block = false;
     let mut current_code_block = String::new();
@@ -288,15 +309,20 @@ async fn markdown_to_typst_async(
             }
             Event::End(TagEnd::Link) => {
                 in_link = false;
-                // TODO: do first pass where we inject some kind of tracking string, then come back later and replace those with a `label()` if the corresponding header exists. other replace with original #url
-                // if current_link_url.starts_with("#") {
-                //     typst_code.push_str(&format!(
-                //         "#link(label(\"{}\"))[{}]", current_link_url.replace("#", ""), current_link_text
-                //     ))
-                // } else {
-                let result = &format!(
-                    "#link(\"{current_link_url}\")[{current_link_text}] (`{current_link_url}`)"
-                );
+                let result = if let Some(fragment) = current_link_url.strip_prefix('#') {
+                    let label = to_kebab_case(fragment);
+                    if heading_labels.contains(&label) {
+                        format!("#link(label(\"{label}\"))[{current_link_text}]")
+                    } else {
+                        format!(
+                            "#link(\"{current_link_url}\")[{current_link_text}] (`{current_link_url}`)"
+                        )
+                    }
+                } else {
+                    format!(
+                        "#link(\"{current_link_url}\")[{current_link_text}] (`{current_link_url}`)"
+                    )
+                };
                 // Get the current output buffer based on context
                 let current_output: &mut String = if in_code_block {
                     &mut current_code_block
@@ -309,7 +335,7 @@ async fn markdown_to_typst_async(
                 } else {
                     &mut typst_code
                 };
-                current_output.push_str(result);
+                current_output.push_str(&result);
             }
             Event::Start(Tag::Image { dest_url, .. }) => {
                 in_image = true;
@@ -771,6 +797,32 @@ async fn markdown_to_typst_async(
     Ok((typst_code, image_files))
 }
 
+fn collect_heading_labels(markdown: &str) -> HashSet<String> {
+    let mut labels = HashSet::new();
+    let mut in_heading = false;
+    let mut heading_text = String::new();
+
+    for event in Parser::new_ext(markdown, Options::all()) {
+        match event {
+            Event::Start(Tag::Heading { .. }) => {
+                in_heading = true;
+                heading_text.clear();
+            }
+            Event::End(TagEnd::Heading(_)) => {
+                if in_heading {
+                    labels.insert(to_kebab_case(&heading_text));
+                    in_heading = false;
+                }
+            }
+            Event::Text(text) | Event::Code(text) if in_heading => heading_text.push_str(&text),
+            Event::SoftBreak | Event::HardBreak if in_heading => heading_text.push(' '),
+            _ => {}
+        }
+    }
+
+    labels
+}
+
 pub fn to_kebab_case(text: &str) -> String {
     // Check if any characters are RTL
     if text.chars().any(is_rtl_character) {
@@ -847,7 +899,13 @@ fn convert_tex_math(text: &str) -> Result<String, String> {
         .chars()
         .filter(|character| !character.is_control() || matches!(character, '\n' | '\r' | '\t'))
         .collect();
-    tex2typst(&filtered).map_err(|_| filtered)
+    let converted = tex2typst(&filtered).map_err(|_| filtered.clone())?;
+
+    if ::typst::syntax::parse_math(&converted).errors().is_empty() {
+        Ok(converted)
+    } else {
+        Err(filtered)
+    }
 }
 
 fn render_tex_math(text: &str, display: bool) -> String {
@@ -2474,5 +2532,54 @@ xyz 456
 
         let world = crate::typst::MdpdfWorld::new(config, typst_code, HashMap::new());
         assert!(world.compile_to_pdf().is_ok());
+    }
+
+    #[test]
+    fn preserves_syntactically_invalid_converted_math_as_text() {
+        let markdown = "This is $math with #function() calls$ and this remains text.";
+        let config = MdpdfConfig::default();
+        let (typst_code, _) = run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
+
+        assert!(typst_code.contains("#raw("), "{typst_code}");
+        let world = crate::typst::MdpdfWorld::new(config, typst_code, HashMap::new());
+        assert!(world.compile_to_pdf().is_ok());
+    }
+
+    #[test]
+    fn embeds_a_math_font_for_portable_pdf_generation() {
+        let config = MdpdfConfig::default();
+        let world = crate::typst::MdpdfWorld::new(
+            config,
+            "$ integral_(0)^1 x dif x $".to_string(),
+            HashMap::new(),
+        );
+
+        assert!(world.compile_to_pdf().is_ok());
+    }
+
+    #[test]
+    fn resolves_existing_internal_links_and_preserves_missing_fragments() {
+        let markdown = "# First Section\n\n[Known](#second-section) [Missing](#does-not-exist)\n\n## Second Section";
+        let config = MdpdfConfig::default();
+        let (typst_code, _) = run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
+
+        assert!(typst_code.contains("#link(label(\"second-section\"))[Known]"));
+        assert!(typst_code.contains("#link(\"#does-not-exist\")[Missing]"));
+    }
+
+    #[test]
+    fn emits_toc_only_when_enabled() {
+        let markdown = "# Heading";
+        let disabled = MdpdfConfig::default();
+        let (without_toc, _) =
+            run_async_test(markdown_to_typst_async(markdown, &disabled)).unwrap();
+        assert!(!without_toc.contains("#outline("));
+
+        let enabled = MdpdfConfig {
+            toc: true,
+            ..disabled
+        };
+        let (with_toc, _) = run_async_test(markdown_to_typst_async(markdown, &enabled)).unwrap();
+        assert_eq!(with_toc.matches("#outline(").count(), 1);
     }
 }
