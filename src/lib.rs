@@ -2471,5 +2471,8 @@ xyz 456
         assert!(typst_code.contains("#raw("), "{typst_code}");
         assert!(typst_code.contains("\\frac{1"));
         assert!(typst_code.contains("this remains text"));
+
+        let world = crate::typst::MdpdfWorld::new(config, typst_code, HashMap::new());
+        assert!(world.compile_to_pdf().is_ok());
     }
 }
