@@ -69,10 +69,11 @@ jobs:
           - host: ubuntu-latest
             target: x86_64-unknown-linux-musl
             build: docker run --rm -v "$GITHUB_WORKSPACE":/workspace -w /workspace rust:1.88.0-alpine sh -c "apk add --no-cache nodejs npm yarn openssl-dev musl-dev && npm install -g corepack && corepack enable && corepack prepare yarn@4.9.2 --activate && yarn install && yarn build --target x86_64-unknown-linux-musl"
-          ### currently broken with "error: linker `aarch64-linux-musl-gcc` not found"
-          # - host: ubuntu-latest
-          #   target: aarch64-unknown-linux-musl
-          #   build: docker run --rm -v "$GITHUB_WORKSPACE":/workspace -w /workspace --platform linux/arm64 rust:1.88.0-alpine sh -c "apk add --no-cache nodejs npm yarn openssl-dev musl-dev build-base && npm install -g corepack && corepack enable && corepack prepare yarn@4.9.2 --activate && yarn install && yarn build --target aarch64-unknown-linux-musl"
+          # Build natively on GitHub's ARM64 runner. This avoids relying on
+          # an x86_64 cross-linker or QEMU for the musl target.
+          - host: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            build: docker run --rm -e CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=gcc -v "$GITHUB_WORKSPACE":/workspace -w /workspace rust:1.88.0-alpine sh -c "apk add --no-cache nodejs npm yarn openssl-dev musl-dev build-base && npm install -g corepack && corepack enable && corepack prepare yarn@4.9.2 --activate && yarn install && yarn build --target aarch64-unknown-linux-musl"
           - host: windows-latest
             build: corepack yarn build --target x86_64-pc-windows-msvc
             target: x86_64-pc-windows-msvc
@@ -108,12 +109,6 @@ jobs:
           # Docker is already available in Ubuntu runners
           # Just ensure we can run Docker commands
           docker --version
-        shell: bash
-      - name: Setup QEMU for aarch64 builds
-        if: ${{ contains(matrix.settings.target, 'aarch64-unknown-linux-musl') }}
-        run: |
-          # Set up QEMU for aarch64 emulation on x86_64
-          docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
         shell: bash
       - name: Setup toolchain
         run: ${{ matrix.settings.setup }}
@@ -186,7 +181,7 @@ jobs:
           - x86_64-unknown-linux-gnu
           - x86_64-unknown-linux-musl
           - aarch64-unknown-linux-gnu
-          # - aarch64-unknown-linux-musl
+          - aarch64-unknown-linux-musl
         node:
           - "20"
           - "22"
