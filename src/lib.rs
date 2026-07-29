@@ -46,13 +46,13 @@ fn github_alert_open(kind: BlockQuoteKind) -> String {
 
     let icon = match icon {
         "diamond" => format!(
-            "#box(width: 0.9em, height: 0.9em, baseline: -0.1em)[#rotate(45deg, rect(width: 0.48em, height: 0.48em, stroke: 1.4pt + rgb(\"{color}\")))]"
+            "#box(width: 0.9em, height: 0.9em, baseline: 0.15em)[#rotate(45deg, rect(width: 0.48em, height: 0.48em, stroke: 1.4pt + rgb(\"{color}\")))]"
         ),
         "triangle" => format!(
-            "#box(width: 0.9em, height: 0.9em, baseline: -0.1em)[#polygon((0.45em, 0em), (0.9em, 0.8em), (0em, 0.8em), stroke: 1.4pt + rgb(\"{color}\"))]"
+            "#box(width: 0.9em, height: 0.9em, baseline: 0.15em)[#polygon((0.45em, 0em), (0.9em, 0.8em), (0em, 0.8em), stroke: 1.4pt + rgb(\"{color}\"))]"
         ),
         _ => format!(
-            "#box(width: 0.9em, height: 0.9em, baseline: -0.1em)[#circle(radius: 0.36em, stroke: 1.4pt + rgb(\"{color}\"))]"
+            "#box(width: 0.9em, height: 0.9em, baseline: 0.15em)[#circle(radius: 0.36em, stroke: 1.4pt + rgb(\"{color}\"))]"
         ),
     };
 
@@ -2438,14 +2438,21 @@ xyz 456
 
     #[test]
     fn renders_github_alerts_with_type_specific_styles() {
-        let markdown = "> [!NOTE]\n> Note body.\n\n> [!CAUTION]\n> Caution body.";
+        let markdown = "> [!NOTE]\n> Note body.\n\n> [!TIP]\n> Tip body.\n\n> [!IMPORTANT]\n> Important body.\n\n> [!WARNING]\n> Warning body.\n\n> [!CAUTION]\n> Caution body.";
         let config = MdpdfConfig::default();
         let (typst_code, _) = run_async_test(markdown_to_typst_async(markdown, &config)).unwrap();
 
         assert!(typst_code.contains("left: 4pt + rgb(\"#0969da\")"));
         assert!(typst_code.contains("[Note]"));
+        assert!(typst_code.contains("left: 4pt + rgb(\"#1a7f37\")"));
+        assert!(typst_code.contains("[Tip]"));
+        assert!(typst_code.contains("left: 4pt + rgb(\"#8250df\")"));
+        assert!(typst_code.contains("[Important]"));
+        assert!(typst_code.contains("left: 4pt + rgb(\"#9a6700\")"));
+        assert!(typst_code.contains("[Warning]"));
         assert!(typst_code.contains("left: 4pt + rgb(\"#cf222e\")"));
         assert!(typst_code.contains("[Caution]"));
+        assert_eq!(typst_code.matches("baseline: 0.15em").count(), 5);
         assert!(!typst_code.contains("📋"));
         assert!(!typst_code.contains("🚨"));
     }
