@@ -1,6 +1,6 @@
 use crate::config::MdpdfConfig;
 use anyhow::Result;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use typst::diag::FileError;
 use typst::foundations::Bytes;
@@ -46,8 +46,14 @@ impl MdpdfWorld {
             }
         }
 
+        let mut visited_font_directories = HashSet::new();
         for path in &config.font_paths {
-            Self::load_fonts_from_path(path, &mut font_book, &mut local_fonts);
+            Self::load_fonts_from_path(
+                path,
+                &mut font_book,
+                &mut local_fonts,
+                &mut visited_font_directories,
+            );
         }
 
         // Append system fonts after the embedded ones so embedded fonts keep
@@ -71,11 +77,28 @@ impl MdpdfWorld {
         }
     }
 
-    fn load_fonts_from_path(path: &PathBuf, font_book: &mut FontBook, fonts: &mut Vec<Font>) {
+    fn load_fonts_from_path(
+        path: &PathBuf,
+        font_book: &mut FontBook,
+        fonts: &mut Vec<Font>,
+        visited_directories: &mut HashSet<PathBuf>,
+    ) {
         if path.is_dir() {
+            let Ok(canonical_path) = std::fs::canonicalize(path) else {
+                return;
+            };
+            if !visited_directories.insert(canonical_path) {
+                return;
+            }
+
             if let Ok(entries) = std::fs::read_dir(path) {
                 for entry in entries.flatten() {
-                    Self::load_fonts_from_path(&entry.path(), font_book, fonts);
+                    Self::load_fonts_from_path(
+                        &entry.path(),
+                        font_book,
+                        fonts,
+                        visited_directories,
+                    );
                 }
             }
             return;
@@ -314,6 +337,29 @@ mod tests {
         let directory = tempfile::tempdir().unwrap();
         std::fs::write(directory.path().join("font.txt"), b"not a font").unwrap();
         std::fs::write(directory.path().join("broken.ttf"), b"not a font").unwrap();
+
+        let baseline = MdpdfWorld::new(MdpdfConfig::default(), String::new(), HashMap::new());
+        let configured = MdpdfWorld::new(
+            MdpdfConfig {
+                font_paths: vec![directory.path().to_path_buf()],
+                ..MdpdfConfig::default()
+            },
+            String::new(),
+            HashMap::new(),
+        );
+
+        assert_eq!(configured.local_fonts.len(), baseline.local_fonts.len());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ignores_cyclic_font_directory_symlinks() {
+        use std::os::unix::fs::symlink;
+
+        let directory = tempfile::tempdir().unwrap();
+        let nested = directory.path().join("nested");
+        std::fs::create_dir(&nested).unwrap();
+        symlink(directory.path(), nested.join("cycle")).unwrap();
 
         let baseline = MdpdfWorld::new(MdpdfConfig::default(), String::new(), HashMap::new());
         let configured = MdpdfWorld::new(
