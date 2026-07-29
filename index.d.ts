@@ -18,10 +18,12 @@ export declare function markdownToPdf(
   markdown: string,
   typstConfig?: string | undefined | null,
   fontPaths?: Array<string> | undefined | null,
+  toc?: boolean | undefined | null,
 ): Promise<Buffer>;
 
 export declare function markdownToTypstCode(
   markdown: string,
   typstConfig?: string | undefined | null,
   fontPaths?: Array<string> | undefined | null,
+  toc?: boolean | undefined | null,
 ): Promise<string>;
