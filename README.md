@@ -12,6 +12,9 @@ Convert Markdown to PDF with a self-contained Rust binary via CLI or Node.js.
 - Cross-platform support (x86_64 and aarch64)
 - Node.js bindings via napi-rs
 - Syntax highlighting for code blocks
+- GitHub Flavored Markdown features, including alerts, footnotes, task lists, tables, and strikethrough
+- Math rendering, internal links, and optional tables of contents
+- Custom fonts, page sizes, margins, and Typst configuration
 
 ### Example Output
 
@@ -38,8 +41,35 @@ pnpm add @mdpdf/mdpdf
 ```
 
 ```javascript
-import { markdownToPdf } from "@mdpdf/mdpdf";
-const pdfBytes = await markdownToPdf("# this is markdown");
+import { markdownToPdf, markdownToPdfWithStats } from "@mdpdf/mdpdf";
+
+const options = {
+  pageSize: "a4",
+  margin: "20mm",
+  fontFamily: "Liberation Serif",
+  fontPaths: ["./fonts"],
+  fontSize: 11,
+  toc: true,
+  typstConfig: "#set text(fill: navy)",
+};
+
+const pdfBytes = await markdownToPdf("# This is Markdown", options);
+const { pdf, stats } = await markdownToPdfWithStats(
+  "# This is Markdown",
+  options,
+);
+```
+
+`markdownToPdfWithStats` returns the generated PDF and character, line, conversion-time,
+and rendering-time statistics. `markdownToTypstCode` accepts the same options. Existing
+positional Node.js arguments remain supported but are deprecated; pass an options object
+for new code.
+
+The CLI accepts equivalent document options:
+
+```sh
+mdpdf document.md --output document.pdf --page-size a4 --margin 20mm \
+  --font-size 11 --font-path ./fonts --toc
 ```
 
 ## Development

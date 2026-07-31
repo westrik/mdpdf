@@ -6,10 +6,9 @@ This is a demonstration of [`mdpdf`](https://github.com/westrik/mdpdf).
 
 ### Links
 - [Link to Google](https://www.google.com)
-
-<!-- section links are not yet supported -->
-<!-- - [Relative link to PDF section](#math) -->
-<!-- - [Relative link to section that does not exist](#does-not-exist) -->
+- [Jump to the math examples](#math)
+- [Jump to the footnote examples](#footnotes)
+- [Link to a section that does not exist](#does-not-exist)
 
 ### Inline Code
 You can use inline code like `console.log("Hello World")` or `const x = 42` or ``` `hello` ``` within your text.
@@ -329,9 +328,17 @@ Term 2
 
 ### Footnotes
 
-Footnote referenced [^1].
+Footnote referenced [^1]. A second reference to the same footnote[^1] reuses its
+definition, while this reference has a label with spaces[^release notes].
 
-[^1]: footnote defined
+[^1]: A footnote with **formatting**, `inline code`, and a
+    [link](https://github.com/westrik/mdpdf).
+
+[^release notes]: This footnote has a label containing spaces and supports
+    multiple paragraphs.
+
+    - It can include a list item.
+    - It can include *emphasis* too.
 
 -----
 
@@ -580,4 +587,3 @@ there should be backslash right here: \
 /* block comment */
 
 // line comment
-
