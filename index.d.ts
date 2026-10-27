@@ -14,6 +14,19 @@
  */
 export declare function evict(maxAge: number): void;
 
+/**
+ * Download and cache Typst packages so later renders don't need network
+ * access.
+ *
+ * Accepts package specs like `"@preview/basic-resume:0.2.9"`. Packages are
+ * stored in the standard Typst cache directory (shared with the Typst CLI),
+ * or in `TYPST_PACKAGE_CACHE_PATH` when that environment variable is set.
+ * Packages that are already cached are skipped.
+ */
+export declare function preloadTypstPackages(
+  packages: Array<string>,
+): Promise<void>;
+
 export interface MarkdownToPdfOptions {
   typstConfig?: string | null;
   pageSize?: string | null;

@@ -232,6 +232,27 @@ pub fn evict(max_age: u32) {
     ::typst::comemo::evict(max_age as usize);
 }
 
+/// Download and cache Typst packages so later renders don't need network
+/// access.
+///
+/// Accepts package specs like `"@preview/basic-resume:0.2.9"`. Packages are
+/// stored in the standard Typst cache directory (shared with the Typst CLI),
+/// or in `TYPST_PACKAGE_CACHE_PATH` when that environment variable is set.
+/// Packages that are already cached are skipped.
+#[cfg(all(not(feature = "fuzz"), feature = "node"))]
+#[napi]
+pub async fn preload_typst_packages(packages: Vec<String>) -> Result<(), NapiError> {
+    for package in packages {
+        let spec: ::typst::syntax::package::PackageSpec = package.parse().map_err(|e| {
+            NapiError::from_reason(format!("Invalid Typst package '{package}': {e}"))
+        })?;
+        crate::typst::world::prepare_package(&spec).map_err(|e| {
+            NapiError::from_reason(format!("Failed to load Typst package '{package}': {e}"))
+        })?;
+    }
+    Ok(())
+}
+
 #[cfg(all(not(feature = "fuzz"), feature = "node"))]
 #[napi]
 pub async fn markdown_to_typst_code(

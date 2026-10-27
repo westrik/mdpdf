@@ -2,12 +2,16 @@ use crate::config::MdpdfConfig;
 use anyhow::Result;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
-use typst::diag::FileError;
+use std::sync::Mutex;
+use typst::diag::{FileError, FileResult, PackageResult};
 use typst::foundations::Bytes;
+use typst::syntax::package::PackageSpec;
 use typst::syntax::{FileId, Source, VirtualPath};
 use typst::text::{Font, FontBook};
 use typst::utils::LazyHash;
 use typst::{World, compile};
+use typst_kit::download::{Downloader, ProgressSink};
+use typst_kit::package::PackageStorage;
 
 pub struct MdpdfWorld {
     config: MdpdfConfig,
@@ -15,6 +19,7 @@ pub struct MdpdfWorld {
     files: HashMap<String, Vec<u8>>,
     fonts: LazyHash<FontBook>,
     local_fonts: Vec<Font>,
+    package_files: Mutex<HashMap<FileId, Bytes>>,
 }
 
 /// System fonts discovered via typst-kit (lazy: searched once per process,
@@ -27,6 +32,33 @@ fn system_fonts() -> &'static typst_kit::fonts::Fonts {
                 .search()
         });
     &SYSTEM_FONTS
+}
+
+/// Typst package storage shared with the Typst CLI. Packages are downloaded on
+/// first use into the standard Typst cache directory, or into
+/// `TYPST_PACKAGE_CACHE_PATH` when that environment variable is set.
+fn package_storage() -> &'static PackageStorage {
+    static PACKAGE_STORAGE: once_cell::sync::Lazy<PackageStorage> =
+        once_cell::sync::Lazy::new(|| {
+            PackageStorage::new(
+                std::env::var_os("TYPST_PACKAGE_CACHE_PATH").map(PathBuf::from),
+                None,
+                Downloader::new(concat!("mdpdf/", env!("CARGO_PKG_VERSION"))),
+            )
+        });
+    &PACKAGE_STORAGE
+}
+
+/// Make a Typst package available on disk, downloading it if necessary, and
+/// return its directory.
+pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
+    // typst-kit unpacks straight into the final directory, so concurrent
+    // downloads of the same package would read each other's partial files.
+    static DOWNLOAD_LOCK: Mutex<()> = Mutex::new(());
+    let _guard = DOWNLOAD_LOCK
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    package_storage().prepare_package(spec, &mut ProgressSink)
 }
 
 impl MdpdfWorld {
@@ -74,7 +106,25 @@ impl MdpdfWorld {
             files,
             fonts,
             local_fonts,
+            package_files: Mutex::new(HashMap::new()),
         }
+    }
+
+    fn read_package_file(&self, id: FileId, spec: &PackageSpec) -> FileResult<Bytes> {
+        if let Some(bytes) = self.package_files.lock().unwrap().get(&id) {
+            return Ok(bytes.clone());
+        }
+
+        let package_dir = prepare_package(spec)?;
+        let path = id
+            .vpath()
+            .resolve(&package_dir)
+            .ok_or(FileError::AccessDenied)?;
+        let data = std::fs::read(&path).map_err(|error| FileError::from_io(error, &path))?;
+        let bytes = Bytes::new(data);
+
+        self.package_files.lock().unwrap().insert(id, bytes.clone());
+        Ok(bytes)
     }
 
     fn load_fonts_from_path(
@@ -274,6 +324,12 @@ impl World for MdpdfWorld {
         FileId::new(None, VirtualPath::new("main"))
     }
     fn source(&self, id: FileId) -> Result<Source, FileError> {
+        if let Some(spec) = id.package() {
+            let bytes = self.read_package_file(id, spec)?;
+            let text = std::str::from_utf8(&bytes)?;
+            return Ok(Source::new(id, text.trim_start_matches('\u{feff}').into()));
+        }
+
         let vpath = id.vpath().clone();
         let vpath_str = vpath.as_rootless_path().to_string_lossy();
         if vpath_str == "main" {
@@ -283,6 +339,10 @@ impl World for MdpdfWorld {
         }
     }
     fn file(&self, id: FileId) -> Result<Bytes, FileError> {
+        if let Some(spec) = id.package() {
+            return self.read_package_file(id, spec);
+        }
+
         let vpath = id.vpath().clone();
         let path = vpath.as_rootless_path().to_string_lossy();
         if let Some(data) = self.files.get(path.as_ref()) {
@@ -350,6 +410,19 @@ mod tests {
         );
 
         assert_eq!(configured.local_fonts.len(), baseline.local_fonts.len());
+    }
+
+    #[test]
+    fn reports_missing_packages_without_downloading() {
+        // Only the `preview` namespace is downloaded, so this stays offline.
+        let world = MdpdfWorld::new(
+            MdpdfConfig::default(),
+            "#import \"@mdpdf-test/missing:0.1.0\": *".to_string(),
+            HashMap::new(),
+        );
+
+        let error = world.compile_to_pdf().unwrap_err().to_string();
+        assert!(error.contains("@mdpdf-test/missing:0.1.0"), "{error}");
     }
 
     #[cfg(unix)]

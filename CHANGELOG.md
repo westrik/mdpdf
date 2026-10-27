@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Support importing Typst packages (e.g. `#import "@preview/basic-resume:0.2.9"`) from a custom Typst preamble. Packages are downloaded on first use into the standard Typst cache directory, which can be overridden with `TYPST_PACKAGE_CACHE_PATH`.
+- Add `preloadTypstPackages()` to let Node.js callers download packages ahead of rendering.
+
 ## 0.1.7
 
 - Allow Node.js callers to supply a custom Typst preamble. ([#10](https://github.com/westrik/mdpdf/pull/10))

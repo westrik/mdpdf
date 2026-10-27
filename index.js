@@ -414,3 +414,4 @@ module.exports = nativeBinding;
 module.exports.evict = nativeBinding.evict;
 module.exports.markdownToPdf = nativeBinding.markdownToPdf;
 module.exports.markdownToTypstCode = nativeBinding.markdownToTypstCode;
+module.exports.preloadTypstPackages = nativeBinding.preloadTypstPackages;

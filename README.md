@@ -65,6 +65,21 @@ and rendering-time statistics. `markdownToTypstCode` accepts the same options. E
 positional Node.js arguments remain supported but are deprecated; pass an options object
 for new code.
 
+`typstConfig` can import packages from [Typst Universe](https://typst.app/universe).
+Packages are downloaded on first use into the standard Typst cache directory (shared with
+the Typst CLI), or into `TYPST_PACKAGE_CACHE_PATH` when set. To avoid downloading during a
+render, preload them when your application starts:
+
+```javascript
+import { markdownToPdf, preloadTypstPackages } from "@mdpdf/mdpdf";
+
+await preloadTypstPackages(["@preview/basic-resume:0.2.9"]);
+
+const pdfBytes = await markdownToPdf("# This is Markdown", {
+  typstConfig: '#import "@preview/basic-resume:0.2.9": *',
+});
+```
+
 The CLI accepts equivalent document options:
 
 ```sh
